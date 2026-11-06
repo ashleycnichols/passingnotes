@@ -165,7 +165,8 @@ export default function Composer({ slug, channel, identity, identityChar, onPick
       </TextTools>
       <div className="composer-row">
         {!ooc && (
-          <button type="button" className="as-chip" onClick={onPickIdentity} aria-label="Change who you are posting as">
+          <button type="button" className="as-chip" onClick={onPickIdentity} aria-label="Change who you are posting as (character or Narrator)">
+            <span className="as-chip-caret" aria-hidden="true"><Icon name="back" size={10} stroke={3} /></span>
             {identity === 'narrator' ? (
               <span className="narrator-badge" aria-hidden="true">N</span>
             ) : identityChar ? (

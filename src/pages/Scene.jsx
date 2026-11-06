@@ -3,7 +3,7 @@ import { getApi } from '../api.js';
 import { getState, update, useStore, rememberScene, rememberUniverse, addMyCharacter, forgetScene } from '../store.js';
 import { go } from '../router.js';
 import { Avatar, Confirm, Icon, Segmented, Sheet, toast, errMsg, UniverseInput, useMedia } from '../ui.jsx';
-import { encodeTags } from '../text.jsx';
+import { encodeTags, firstLine } from '../text.jsx';
 import { themeOf, themeStyle, readableColor, TEXT_SIZES } from '../look.js';
 import { universeKey, inAppBrowser } from '../util.js';
 import Feed from '../components/Feed.jsx';
@@ -54,6 +54,8 @@ export default function Scene({ slug, jumpPost }) {
   const [sharing, setSharing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [reclaiming, setReclaiming] = useState(null);
+  const [chapterEdit, setChapterEdit] = useState(null); // a chapter post being renamed
+  const [chapterBefore, setChapterBefore] = useState(null); // insert a chapter break just before this post
   const [descOpen, setDescOpen] = useState(!seenDesc);
   const [online, setOnline] = useState(navigator.onLine);
   const desktop = useMedia('(min-width: 1100px)');
@@ -357,6 +359,32 @@ export default function Scene({ slug, jumpPost }) {
     jumpTo(jumpPost);
   }, [jumpPost, posts.story.length]);
 
+  const chapters = posts.story.filter((p) => p.kind === 'chapter');
+  const saveChapter = async (title, existing, before) => {
+    try {
+      const api = await getApi();
+      if (existing) {
+        const saved = await api.updatePost(existing.id, { body: title });
+        setPosts((prev) => ({ ...prev, story: merge(prev.story, [saved]) }));
+      } else {
+        const row = {
+          scene_id: scene.id, channel: 'story', kind: 'chapter', character_id: null, author_device_id: deviceId, body: title, tagged_character_ids: [],
+        };
+        // Going back in time: slot the break in a millisecond before the chosen post.
+        if (before) row.created_at = new Date(Date.parse(before.created_at) - 1).toISOString();
+        const saved = await api.createPost(row);
+        setPosts((prev) => ({ ...prev, story: merge(prev.story, [saved]) }));
+        if (before) window.dispatchEvent(new CustomEvent('pn:reveal', { detail: before.id }));
+        else requestAnimationFrame(() => scrollToBottom(true));
+      }
+      setChapterEdit(null);
+      setChapterBefore(null);
+      setSheet(null);
+    } catch (e) {
+      toast(/kind_check|violates check/i.test(e.message) ? 'Chapters need a quick database update first (the chapters SQL file).' : errMsg(e), 'error');
+    }
+  };
+
   const deleteScene = async () => {
     try {
       const api = await getApi();
@@ -372,6 +400,7 @@ export default function Scene({ slug, jumpPost }) {
 
   const jumpTo = (postId) => {
     setView('story');
+    window.dispatchEvent(new CustomEvent('pn:reveal', { detail: postId }));
     setTimeout(() => {
       const el = document.getElementById(`post-${postId}`);
       if (!el) return toast('That post is further back. Tap “Load earlier” to find it.');
@@ -510,6 +539,18 @@ export default function Scene({ slug, jumpPost }) {
                 <p className="muted small">No description yet. <button className="link-btn" onClick={() => setSheet('settings')}>Add one</button></p>
               )}
             </section>
+            {(chapters.length > 0 || joined) && (
+              <section className="desk-card">
+                <h3 className="desk-h">Chapters</h3>
+                {chapters.length > 0 ? (
+                  <ol className="desk-chapters">
+                    {posts.story[0]?.kind !== 'chapter' && <li><button onClick={() => jumpTo(posts.story[0].id)}>Beginning</button></li>}
+                    {chapters.map((c) => <li key={c.id}><button onClick={() => jumpTo(c.id)}>{c.body}</button></li>)}
+                  </ol>
+                ) : <p className="muted small">One long chapter so far.</p>}
+                {joined && <button className="btn small block" onClick={() => { setChapterEdit(null); setChapterBefore(null); setSheet('chapter'); }}><Icon name="plus" size={16} /> New chapter</button>}
+              </section>
+            )}
             <section className="desk-card">
               <h3 className="desk-h">Who’s in <span className="muted small">{participants.length} of {MAX_PLAYERS} players</span></h3>
               {roster.length === 0 && <p className="muted small">No characters yet.</p>}
@@ -536,7 +577,8 @@ export default function Scene({ slug, jumpPost }) {
           <main className="desk-center">
             {more.story && <button className="btn ghost small center-block" onClick={loadEarlier}>Load earlier</button>}
             <Feed posts={posts.story} channel="story" ctx={ctx} canEdit={canEdit} onEdit={editPost} onDelete={(p) => setConfirmDel(p)}
-              storyById={storyById} myIds={myIds} onJump={jumpTo}
+              storyById={storyById} myIds={myIds} onJump={jumpTo} slug={slug} onChapterEdit={(c) => { setChapterBefore(null); setChapterEdit(c); setSheet('chapter'); }}
+          onChapterHere={joined ? (p) => { setChapterEdit(null); setChapterBefore(p); setSheet('chapter'); } : null}
               participantsByDevice={playersByDevice} rosterByDevice={rosterByDevice}
               emptyText="The stage is yours. Write the opening line, or post as Narrator to set the scene." />
             <div className="desk-composer">
@@ -581,7 +623,8 @@ export default function Scene({ slug, jumpPost }) {
         )}
         {more[view] && <button className="btn ghost small center-block" onClick={loadEarlier}>Load earlier</button>}
         <Feed posts={list} channel={view} ctx={ctx} canEdit={canEdit} onEdit={editPost} onDelete={(p) => setConfirmDel(p)}
-          storyById={storyById} myIds={myIds} onJump={jumpTo}
+          storyById={storyById} myIds={myIds} onJump={jumpTo} slug={slug} onChapterEdit={(c) => { setChapterBefore(null); setChapterEdit(c); setSheet('chapter'); }}
+          onChapterHere={joined ? (p) => { setChapterEdit(null); setChapterBefore(p); setSheet('chapter'); } : null}
           participantsByDevice={playersByDevice} rosterByDevice={rosterByDevice}
           emptyText={view === 'story' ? 'The stage is yours. Write the opening line, or post as Narrator to set the scene.' : 'Out-of-character chat lives here. Plans, questions, “brb”.'} />
         <div className="feed-spacer" />
@@ -616,6 +659,7 @@ export default function Scene({ slug, jumpPost }) {
         <div className="menu-list">
           <button onClick={() => setSheet('roster')}><Icon name="users" /> Who’s in the scene</button>
           {joined && <button onClick={() => setSheet('addChar')}><Icon name="plus" /> Add a character</button>}
+          {joined && <button onClick={() => { setChapterEdit(null); setChapterBefore(null); setSheet('chapter'); }}><Icon name="book" /> Start a new chapter</button>}
           <button onClick={() => setSheet('settings')}><Icon name="settings" /> Scene settings and look</button>
           <button onClick={() => setSheet('export')}><Icon name="download" /> Export scene</button>
           <button onClick={() => setSheet('text')}><Icon name="book" /> Text size</button>
@@ -675,6 +719,7 @@ export default function Scene({ slug, jumpPost }) {
             {identity === 'narrator' && <Icon name="check" className="end" />}
           </button>
           <button onClick={() => setSheet('addChar')}><Icon name="plus" /> Add a character</button>
+          <button onClick={() => { setChapterEdit(null); setChapterBefore(null); setSheet('chapter'); }}><Icon name="book" /> Start a new chapter</button>
         </div>
       </Sheet>
 
@@ -711,6 +756,14 @@ export default function Scene({ slug, jumpPost }) {
         body={`This device will be able to post and edit as ${reclaiming?.name || ''}. Everyone will see a note in OOC chat. Only do this for your own character.`}
         onCancel={() => setReclaiming(null)}
         onConfirm={() => { const c = reclaiming; setReclaiming(null); reclaim(c); }} />
+
+      <Sheet open={sheet === 'chapter'} onClose={() => { setSheet(null); setChapterEdit(null); setChapterBefore(null); }}
+        title={chapterEdit ? 'Rename chapter' : chapterBefore ? 'Start a chapter here' : 'Start a new chapter'}>
+        <ChapterForm key={chapterEdit?.id || chapterBefore?.id || 'new'} existing={chapterEdit} before={chapterBefore} ctx={{ charsById }}
+          defaultTitle={`Chapter ${(chapterBefore ? chapters.filter((c) => c.created_at < chapterBefore.created_at).length : chapters.length) + 2}: `}
+          onSave={(t) => saveChapter(t, chapterEdit, chapterBefore)}
+          onRemove={chapterEdit ? () => { const c = chapterEdit; setSheet(null); setChapterEdit(null); deletePost(c); } : null} />
+      </Sheet>
 
       <Sheet open={sheet === 'delete'} onClose={() => setSheet(null)} title="Delete this scene?">
         <DeleteSceneForm scene={scene} onExport={() => setSheet('export')} onDelete={deleteScene} />
@@ -879,5 +932,23 @@ function NotifyMenuItem({ onNeedsSettings }) {
         toast(errMsg(e), 'error');
       }
     }}><Icon name="chat" /> Notify me when I’m tagged</button>
+  );
+}
+
+function ChapterForm({ existing, before, ctx, defaultTitle, onSave, onRemove }) {
+  const [title, setTitle] = useState(existing ? existing.body : defaultTitle);
+  const [busy, setBusy] = useState(false);
+  return (
+    <form className="form" onSubmit={async (e) => { e.preventDefault(); const t = title.trim(); if (!t) return; setBusy(true); await onSave(t.slice(0, 120)); setBusy(false); }}>
+      {before ? (
+        <p className="muted">The new chapter will start with this post, and everything after it moves into the chapter:<br />
+          <em>“{firstLine(before.body, ctx.charsById, 70)}”</em></p>
+      ) : !existing && <p className="muted">Earlier chapters fold away so everyone can focus on what’s happening now. Anyone can open them again.</p>}
+      <label className="field"><span>Chapter title</span>
+        <input value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} autoFocus placeholder="Chapter 2: The Library" />
+      </label>
+      <button className="btn primary block" disabled={busy || !title.trim()}>{existing ? 'Save' : 'Start chapter'}</button>
+      {onRemove && <button type="button" className="link-btn danger-text center-block" onClick={onRemove}>Remove this chapter break</button>}
+    </form>
   );
 }

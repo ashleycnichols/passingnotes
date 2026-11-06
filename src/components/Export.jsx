@@ -22,6 +22,11 @@ export function buildExport(scene, posts, charsById, playersByDevice, format) {
   out.push('', md ? '---' : '----------');
   let lastDay = null;
   posts.forEach((p) => {
+    if (p.kind === 'chapter') {
+      out.push('', md ? `# ${p.body}` : `=== ${p.body.toUpperCase()} ===`);
+      lastDay = null;
+      return;
+    }
     const day = new Date(p.created_at).toDateString();
     if (day !== lastDay) {
       out.push('', md ? `## ${dayLabel(p.created_at)}` : `[ ${dayLabel(p.created_at)} ]`);
@@ -41,6 +46,10 @@ export function buildHtml(scene, posts, charsById, playersByDevice) {
   if (scene.universe) html += `<p><i>${esc(scene.universe)}</i></p>`;
   if (scene.description) html += `<blockquote>${esc(scene.description).replace(/\n/g, '<br>')}</blockquote>`;
   posts.forEach((p) => {
+    if (p.kind === 'chapter') {
+      html += `<h2>${esc(p.body)}</h2>`;
+      return;
+    }
     const c = charsById[p.character_id];
     const who = esc(speaker(p, charsById, playersByDevice));
     html += `<p><b style="color:${c ? c.color : 'inherit'}">${who}:</b></p>${toHtml(p.body, ctx)}`;
@@ -139,6 +148,10 @@ export function PrintView({ slug, withOoc }) {
         {scene.universe && <p className="print-universe">{scene.universe}</p>}
         {scene.description && <div className="print-desc">{scene.description}</div>}
         {posts.map((p) => {
+          if (p.kind === 'chapter') {
+            lastDay = null;
+            return <h2 key={p.id} className="print-chapter">{p.body}</h2>;
+          }
           const day = new Date(p.created_at).toDateString();
           const sep = day !== lastDay ? <h2 className="print-day">{dayLabel(p.created_at)}</h2> : null;
           lastDay = day;

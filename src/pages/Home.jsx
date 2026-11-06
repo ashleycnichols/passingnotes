@@ -116,7 +116,7 @@ export default function Home() {
           )}
           {lp ? (
             <p className="preview">
-              {lp.kind === 'narrator' ? <span className="who muted">Narrator: </span> : lc ? <span className="who" style={{ color: readableColor(lc.color, chromeSurface()) }}>{lc.name}: </span> : null}
+              {lp.kind === 'chapter' ? <span className="who muted">New chapter: </span> : lp.kind === 'narrator' ? <span className="who muted">Narrator: </span> : lc ? <span className="who" style={{ color: readableColor(lc.color, chromeSurface()) }}>{lc.name}: </span> : null}
               {firstLine(lp.body, charsById)}
             </p>
           ) : (

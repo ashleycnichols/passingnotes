@@ -56,7 +56,7 @@ with sync_playwright() as pw:
     expect(a.get_by_role('heading', name='The Lantern Room')).to_be_visible()
 
     # A adds a character with a photo
-    a.get_by_role('button', name='Character').click()
+    a.get_by_role('button', name='Character', exact=True).click()
     a.get_by_role('button', name='Create a new character').click()
     a.get_by_label('Name').fill('Sterling Ashbourne')
     a.get_by_role('radio', name='#1971c2').click()
@@ -237,6 +237,31 @@ with sync_playwright() as pw:
     b.get_by_role('tab', name='OOC chat').click()
     expect(b.locator('.ooc-post', has_text='was reclaimed')).to_be_visible(timeout=5000)
     shot(b, '18-reclaim-note')
+
+    # ---- chapters: retroactive break, then a new chapter at the end
+    b.get_by_role('tab', name='Story').click()
+    target = b.locator('.char-post', has_text='stumbles after')
+    target.locator('.post-body').click()
+    target.get_by_role('button', name='Chapter starts here').click()
+    expect(b.get_by_role('dialog', name='Start a chapter here')).to_be_visible()
+    b.get_by_label('Chapter title').fill('Chapter 2: The Chase')
+    b.get_by_role('button', name='Start chapter').click()
+    expect(b.locator('.chapter-title', has_text='Chapter 2: The Chase')).to_be_visible()
+    # the break sits before the chosen post, which now lives in chapter 2
+    expect(b.locator('.chapter', has_text='Chapter 2: The Chase').locator('.char-post', has_text='stumbles after')).to_be_visible()
+    b.get_by_role('button', name='Scene menu').click()
+    b.get_by_role('button', name='Start a new chapter').click()
+    expect(b.get_by_label('Chapter title')).to_have_value('Chapter 3: ')
+    b.get_by_label('Chapter title').fill('Chapter 3: Upstairs')
+    b.get_by_role('button', name='Start chapter').click()
+    expect(b.locator('.chapter-title', has_text='Chapter 3: Upstairs')).to_be_visible()
+    expect(b.locator('.chapter:not(.open)')).to_have_count(2)
+    shot(b, '24-chapters-folded')
+    b.locator('.chapter-toggle', has_text='Beginning').click()
+    expect(b.locator('.char-post', has_text='not the wind')).to_be_visible()
+    # A sees the chapters live
+    a.goto(f'{BASE}/#/s/{slug}')
+    expect(a.locator('.chapter-title', has_text='Chapter 3: Upstairs')).to_be_visible(timeout=5000)
 
     # ---- shared universe list on another device
     b.goto(BASE + '/#/new')

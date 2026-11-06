@@ -19,6 +19,7 @@ function blank() {
     homeGrouped: false,
     dismissedInstallTip: false,
     lastBackupAt: null,
+    openChapters: {}, // slug -> { chapterKey: true/false }
   };
 }
 

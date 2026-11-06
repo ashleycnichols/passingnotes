@@ -449,3 +449,21 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); box-sh
 .crop-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 999px rgb(0 0 0 / 0.45); border: 2px solid rgb(255 255 255 / 0.85); pointer-events: none; }
 .crop-zoom { display: flex; align-items: center; gap: 10px; width: 260px; }
 .crop-zoom input { flex: 1; accent-color: var(--text); }
+
+/* chapters */
+.chapter { margin: 4px 0 10px; }
+.chapter-head { position: sticky; top: var(--hdr, 0px); z-index: 5; display: flex; align-items: center; gap: 4px; margin: 14px 0 6px; padding: 2px 4px 2px 0; border-bottom: 1px solid var(--border); background: var(--bg); }
+.chapter-toggle { flex: 1; min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; padding: 10px 4px; border: 0; background: none; text-align: left; color: var(--text); }
+.chapter-toggle .chev { align-self: center; transform: rotate(180deg); color: var(--muted); transition: transform 0.15s; flex: none; }
+.chapter.open .chapter-toggle .chev { transform: rotate(-90deg); }
+.chapter-title { font-family: var(--story-font); font-size: calc(var(--story-size) + 3px); font-weight: 700; }
+.chapter-meta { font-size: 0.78rem; color: var(--muted); }
+.chapter:not(.open) .chapter-head { opacity: 0.85; }
+.chapter-empty { font-family: var(--story-font); font-style: italic; color: var(--muted); padding: 12px 4px; }
+.desk-chapters { margin: 0 0 12px; padding-left: 20px; display: grid; gap: 2px; }
+.desk-chapters button { border: 0; background: none; padding: 4px 0; text-align: left; color: var(--text); font-family: var(--story-font); }
+.desk-chapters button:hover { color: var(--accent); }
+.print-chapter { font-size: 1.5rem; margin: 40px 0 8px; break-before: auto; break-after: avoid; }
+.as-chip { position: relative; }
+.as-chip-caret { position: absolute; right: -1px; bottom: 1px; width: 15px; height: 15px; display: grid; place-items: center; border-radius: 50%; background: var(--text); color: var(--bg); border: 2px solid var(--bg); }
+.as-chip-caret svg { transform: rotate(-90deg); }
