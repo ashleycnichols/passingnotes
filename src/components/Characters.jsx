@@ -1,39 +1,129 @@
 import { useEffect, useRef, useState } from 'react';
 import { getApi } from '../api.js';
-import { addMyCharacter, keyFor, useStore, getState, rememberUniverse } from '../store.js';
-import { Avatar, Icon, Sheet, toast, errMsg, UniverseInput } from '../ui.jsx';
+import { addMyCharacter, forgetMyCharacter, keyFor, useStore, getState, rememberUniverse } from '../store.js';
+import { Avatar, Confirm, Icon, Sheet, toast, errMsg, UniverseInput } from '../ui.jsx';
 import { PALETTE } from '../look.js';
 import { uuid, baseUrl, shareOrCopy, copyText } from '../util.js';
 
-// Square-crop and shrink a photo in the browser so uploads stay tiny (~40 KB).
-export async function processPhoto(file, size = 400) {
+export function loadImage(file) {
   const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = () => rej(new Error('Could not read that image. Try a JPEG or PNG.'));
-      i.src = url;
-    });
-    const side = Math.min(img.naturalWidth, img.naturalHeight);
-    const sx = (img.naturalWidth - side) / 2;
-    const sy = (img.naturalHeight - side) / 2;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
-    const toBlob = (type, q) => new Promise((res) => canvas.toBlob(res, type, q));
-    let blob = await toBlob('image/webp', 0.8);
-    if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/jpeg', 0.85);
-    return blob;
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res({ img: i, url });
+    i.onerror = () => {
+      URL.revokeObjectURL(url);
+      rej(new Error('Could not read that image. Try a JPEG or PNG.'));
+    };
+    i.src = url;
+  });
 }
 
-export function CharacterForm({ open, character, scene, onClose, onSaved }) {
+// Best guess at a head-and-shoulders square: faces in portraits sit in the upper part of the frame.
+export function defaultCrop(w, h) {
+  const ratio = h / w;
+  if (ratio > 1.6) {
+    const side = w * 0.62; // full-body art: tighter, near the top
+    return { side, x: (w - side) / 2, y: h * 0.04 };
+  }
+  if (ratio > 1.05) {
+    const side = w * 0.92; // portrait: full width, from just below the top
+    return { side, x: (w - side) / 2, y: Math.min(h * 0.04, h - side) };
+  }
+  const side = Math.min(w, h) * 0.9; // square or landscape: centred, nudged up
+  return { side, x: (w - side) / 2, y: Math.max(0, (h - side) * 0.3) };
+}
+
+export function clampCrop(c, w, h) {
+  const side = Math.min(Math.max(c.side, 40), Math.min(w, h));
+  return { side, x: Math.min(Math.max(c.x, 0), w - side), y: Math.min(Math.max(c.y, 0), h - side) };
+}
+
+export async function renderCrop(img, crop, size = 400) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, crop.x, crop.y, crop.side, crop.side, 0, 0, size, size);
+  const toBlob = (type, q) => new Promise((res) => canvas.toBlob(res, type, q));
+  let blob = await toBlob('image/webp', 0.8);
+  if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/jpeg', 0.85);
+  return blob;
+}
+
+// Drag to move, slider / pinch / scroll to zoom. Starts on the head-and-shoulders guess.
+export function PhotoCropper({ source, onCancel, onDone }) {
+  const VIEW = 260;
+  const { img } = source;
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const maxSide = Math.min(w, h);
+  const [crop, setCrop] = useState(() => clampCrop(defaultCrop(w, h), w, h));
+  const pointers = useRef(new Map());
+  const pinch = useRef(null);
+  const k = VIEW / crop.side;
+
+  const zoomTo = (side, cx = crop.x + crop.side / 2, cy = crop.y + crop.side / 2) =>
+    setCrop(clampCrop({ side, x: cx - side / 2, y: cy - side / 2 }, w, h));
+
+  const onDown = (e) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), side: crop.side };
+    }
+  };
+  const onMove = (e) => {
+    const prev = pointers.current.get(e.pointerId);
+    if (!prev) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2 && pinch.current) {
+      const [a, b] = [...pointers.current.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      zoomTo(pinch.current.side * (pinch.current.dist / Math.max(d, 1)));
+      return;
+    }
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    setCrop((c) => clampCrop({ ...c, x: c.x - dx / (VIEW / c.side), y: c.y - dy / (VIEW / c.side) }, w, h));
+  };
+  const onUp = (e) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+  };
+  const zoom = maxSide / crop.side; // 1 = widest
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <Sheet open onClose={onCancel} title="Frame the portrait"
+      footer={
+        <>
+          <button className="btn ghost" onClick={onCancel} disabled={busy}>Cancel</button>
+          <button className="btn primary" disabled={busy} onClick={async () => { setBusy(true); try { onDone(await renderCrop(img, crop)); } finally { setBusy(false); } }}>Use photo</button>
+        </>
+      }>
+      <div className="cropper">
+        <div className="crop-view" style={{ width: VIEW, height: VIEW }}
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+          onWheel={(e) => zoomTo(crop.side * (e.deltaY > 0 ? 1.08 : 0.92))}>
+          <img src={source.url} alt="" draggable={false}
+            style={{ width: w * k, height: h * k, transform: `translate(${-crop.x * k}px, ${-crop.y * k}px)` }} />
+          <div className="crop-ring" aria-hidden="true" />
+        </div>
+        <label className="crop-zoom">
+          <span className="muted small">Zoom</span>
+          <input type="range" min="1" max="4" step="0.01" value={zoom} aria-label="Zoom"
+            onChange={(e) => zoomTo(maxSide / Number(e.target.value))} />
+        </label>
+        <p className="muted small center">Drag to move. Pinch or use the slider to zoom. Aim for head and shoulders.</p>
+        <button type="button" className="link-btn center-block" onClick={() => setCrop(clampCrop(defaultCrop(w, h), w, h))}>Reset framing</button>
+      </div>
+    </Sheet>
+  );
+}
+
+export function CharacterForm({ open, character, scene, onClose, onSaved, onDeleted }) {
   const universes = useStore((s) => s.recentUniverses);
   const editing = !!character;
   const [name, setName] = useState('');
@@ -41,7 +131,24 @@ export function CharacterForm({ open, character, scene, onClose, onSaved }) {
   const [universe, setUniverse] = useState('');
   const [photo, setPhoto] = useState(null); // { blob, preview } | 'remove' | null
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const fileRef = useRef(null);
+
+  const remove = async () => {
+    setConfirmDelete(false);
+    setBusy(true);
+    try {
+      const api = await getApi();
+      await api.deleteCharacter(character.id, keyFor(character.id));
+      forgetMyCharacter(character.id);
+      toast(`Deleted ${character.name}`);
+      onDeleted?.(character);
+    } catch (e) {
+      toast(errMsg(e), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -50,15 +157,20 @@ export function CharacterForm({ open, character, scene, onClose, onSaved }) {
     setUniverse(character ? character.universe || '' : scene?.universe || '');
     setPhoto(null);
     setBusy(false);
+    setCropSource(null);
+    setLastSource(null);
   }, [open, character, scene]);
 
+  const [cropSource, setCropSource] = useState(null); // { img, url } while framing
+  const [lastSource, setLastSource] = useState(null); // keep the original so it can be re-framed
   const pick = async (e) => {
     const f = e.target.files?.[0];
     e.target.value = '';
     if (!f) return;
     try {
-      const blob = await processPhoto(f);
-      setPhoto({ blob, preview: URL.createObjectURL(blob) });
+      const src = await loadImage(f);
+      setLastSource(src);
+      setCropSource(src);
     } catch (err) {
       toast(errMsg(err), 'error');
     }
@@ -116,7 +228,8 @@ export function CharacterForm({ open, character, scene, onClose, onSaved }) {
           </label>
           <div className="photo-links">
             <button type="button" className="link-btn" onClick={() => fileRef.current?.click()}>{shownPhoto ? 'Change photo' : 'Upload photo'}</button>
-            {shownPhoto && <button type="button" className="link-btn" onClick={() => setPhoto('remove')}>Remove photo</button>}
+            {photo && photo !== 'remove' && lastSource && <button type="button" className="link-btn" onClick={() => setCropSource(lastSource)}>Adjust</button>}
+            {shownPhoto && <button type="button" className="link-btn" onClick={() => setPhoto('remove')}>Remove</button>}
           </div>
         </div>
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={pick} />
@@ -142,6 +255,18 @@ export function CharacterForm({ open, character, scene, onClose, onSaved }) {
         <span>Universe <em className="muted">(optional)</em></span>
         <UniverseInput value={universe} onChange={setUniverse} suggestions={universes} />
       </label>
+      {editing && keyFor(character.id) && (
+        <button type="button" className="link-btn danger-text delete-char" onClick={() => setConfirmDelete(true)} disabled={busy}>
+          <Icon name="trash" size={16} /> Delete this character
+        </button>
+      )}
+      {cropSource && (
+        <PhotoCropper source={cropSource} onCancel={() => setCropSource(null)}
+          onDone={(blob) => { setPhoto({ blob, preview: URL.createObjectURL(blob) }); setCropSource(null); }} />
+      )}
+      <Confirm open={confirmDelete} title={`Delete ${character?.name || ''}?`} confirmLabel="Delete character"
+        body="They’ll leave every scene and disappear from your characters on every device. Their past posts stay in the story under their name. This can’t be undone."
+        onCancel={() => setConfirmDelete(false)} onConfirm={remove} />
     </Sheet>
   );
 }

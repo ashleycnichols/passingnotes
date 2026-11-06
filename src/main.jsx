@@ -3,6 +3,8 @@ import { Component } from 'react';
 import { useRoute } from './router.js';
 import { isConfigured } from './api.js';
 import { Toasts } from './ui.jsx';
+import { registerServiceWorker, syncPush } from './push.js';
+import { getState, subscribeStore } from './store.js';
 import Home from './pages/Home.jsx';
 import NewScene from './pages/NewScene.jsx';
 import Scene from './pages/Scene.jsx';
@@ -43,23 +45,37 @@ function NotSetUp() {
 function App() {
   const { parts } = useRoute();
   if (!isConfigured()) return <NotSetUp />;
-  const [a, b, c] = parts;
+  const [a, rawB, c] = parts;
+  const [b, query = ''] = (rawB || '').split('?');
+  const jumpPost = new URLSearchParams(query).get('post');
   let page;
   if (!a) page = <Home />;
   else if (a === 'new') page = <NewScene />;
   else if (a === 's' && b && c && c.startsWith('print')) page = <PrintView slug={b} withOoc={c.includes('ooc=1')} />;
-  else if (a === 's' && b) page = <Scene key={b} slug={b} />;
+  else if (a === 's' && b) page = <Scene key={b} slug={b} jumpPost={jumpPost} />;
   else if (a === 'claim') page = <Claim token={b} />;
   else if (a === 'restore') page = <Restore data={b} />;
   else if (a === 'settings') page = <Settings />;
   else if (a === 'how') page = <HowItWorks />;
   else page = <Home />;
   return (
-    <Boundary key={parts.join('/')}>
+    <Boundary key={`${a}/${b}/${c || ''}`}>
       {page}
       <Toasts />
     </Boundary>
   );
 }
+
+registerServiceWorker();
+
+// Keep this device's notification registration in step with the characters it plays.
+let lastChars = getState().myCharacters.map((c) => c.id).join(',');
+subscribeStore(() => {
+  const now = getState().myCharacters.map((c) => c.id).join(',');
+  if (now === lastChars) return;
+  lastChars = now;
+  if ('Notification' in window && Notification.permission === 'granted') syncPush().catch(() => {});
+});
+if ('Notification' in window && Notification.permission === 'granted') syncPush().catch(() => {});
 
 createRoot(document.getElementById('root')).render(<App />);

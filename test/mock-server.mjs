@@ -65,6 +65,21 @@ const api = {
     if (!c) throw new Error('This device does not hold the key for that character.');
     Object.assign(c, f, { updated_at: now() });
   },
+  deleteCharacter(id, key) {
+    const c = db.characters.find((x) => x.id === id && x.owner_key === key && !x.deleted_at);
+    if (!c) throw new Error('This device does not hold the key for that character.');
+    c.deleted_at = now();
+    const scenes = db.links.filter((l) => l.character_id === id).map((l) => l.scene_id);
+    db.links = db.links.filter((l) => l.character_id !== id);
+    scenes.forEach((s) => emit(s, { type: 'roster' }));
+  },
+  savePushSubscription(deviceId, endpoint, p256dh, auth, characterIds) {
+    db.push = (db.push || []).filter((x) => x.endpoint !== endpoint);
+    db.push.push({ deviceId, endpoint, p256dh, auth, characterIds });
+  },
+  removePushSubscription(endpoint) {
+    db.push = (db.push || []).filter((x) => x.endpoint !== endpoint);
+  },
   deleteScene(sceneId, deviceId) {
     const s = db.scenes.find((x) => x.id === sceneId && x.created_by_device === deviceId);
     if (!s) return false;
@@ -164,7 +179,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/config.js') {
       res.writeHead(200, { 'content-type': 'text/javascript' });
-      res.end(`window.PN_CONFIG = { appName: 'Passing Notes', mock: 'http://localhost:${PORT}' };`);
+      res.end(`window.PN_CONFIG = { appName: 'Passing Notes', mock: 'http://localhost:${PORT}', vapidPublicKey: 'BLKEZ_b5DGTyNjzG67xIWA7g5SJ8TJmZaWW4ssuBaEY_K8d8DPZRP1nxp__oIv9czMNGe9m2953aj99S0IIV1aI' };`);
       return;
     }
     const path = normalize(join(ROOT, url.pathname === '/' ? 'index.html' : url.pathname));

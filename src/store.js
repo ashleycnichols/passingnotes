@@ -64,6 +64,7 @@ function subscribe(l) {
   listeners.add(l);
   return () => listeners.delete(l);
 }
+export const subscribeStore = subscribe;
 
 // Other tabs on the same device stay in sync.
 window.addEventListener('storage', (e) => {

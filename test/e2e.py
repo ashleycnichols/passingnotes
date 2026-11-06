@@ -15,7 +15,7 @@ def shot(page, name):
 def phone(browser, dark=False):
     ctx = browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True,
                               color_scheme='dark' if dark else 'light', accept_downloads=True,
-                              permissions=['clipboard-read', 'clipboard-write'])
+                              permissions=['clipboard-read', 'clipboard-write', 'notifications'])
     p = ctx.new_page()
     p.on('console', lambda m: m.type == 'error' and errors.append(f'[console] {m.text}'))
     p.on('pageerror', lambda e: errors.append(f'[pageerror] {e}'))
@@ -23,9 +23,10 @@ def phone(browser, dark=False):
 
 def make_png(path, color):
     from PIL import Image, ImageDraw
-    im = Image.new('RGB', (900, 600), color)
+    im = Image.new('RGB', (600, 1000), color)   # tall portrait, face near the top
     d = ImageDraw.Draw(im)
-    d.ellipse([300, 150, 600, 450], fill=(250, 240, 220))
+    d.ellipse([210, 90, 390, 300], fill=(250, 225, 200))
+    d.rectangle([120, 330, 480, 1000], fill=(40, 40, 60))
     im.save(path)
 
 with sync_playwright() as pw:
@@ -62,7 +63,11 @@ with sync_playwright() as pw:
     png = f'{OUT}/_photo.png'
     make_png(png, (60, 90, 140))
     a.locator('input[type=file]').set_input_files(png)
-    a.wait_for_timeout(400)
+    expect(a.get_by_role('dialog', name='Frame the portrait')).to_be_visible()
+    a.wait_for_timeout(300)
+    shot(a, '04a-cropper')
+    a.get_by_role('button', name='Use photo').click()
+    a.wait_for_timeout(300)
     shot(a, '04-character-form')
     a.get_by_role('button', name='Create character').click()
     expect(a.locator('.roster-chip', has_text='Sterling Ashbourne')).to_be_visible()
@@ -288,6 +293,20 @@ with sync_playwright() as pw:
     del_btn.click()
     expect(a.get_by_text('No scenes yet')).to_be_visible()
     expect(b.get_by_text('This scene was deleted by its creator.')).to_be_visible(timeout=5000)
+
+    # ---- notifications toggle shows in Settings
+    a.goto(BASE + '/#/settings')
+    expect(a.get_by_role('heading', name='Tag notifications')).to_be_visible()
+    # headless Chromium always reports notifications as blocked, so check that state's guidance
+    expect(a.locator('#notifications')).to_contain_text('Notifications are blocked for this site')
+
+    # ---- delete a character
+    a.goto(BASE + '/')
+    a.get_by_role('tab', name='My characters').click()
+    a.get_by_role('button', name='Edit Sterling Ashbourne').click()
+    a.get_by_role('button', name='Delete this character').click()
+    a.get_by_role('button', name='Delete character').click()
+    expect(a.get_by_text('No characters on this device')).to_be_visible()
 
     browser.close()
 

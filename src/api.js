@@ -2,7 +2,20 @@
 // Real mode uses Supabase. Test mode (config.mock) talks to a local test server.
 
 const SUPABASE_ESM = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const CHAR_COLS = 'id,name,color,photo_url,universe,created_by_device,created_at,updated_at';
+const CHAR_BASE = 'id,name,color,photo_url,universe,created_by_device,created_at,updated_at';
+let CHAR_COLS = `${CHAR_BASE},deleted_at`;
+// Until the character-delete migration has run, fall back to the older column list.
+async function withCharCols(fn) {
+  try {
+    return await fn(CHAR_COLS);
+  } catch (e) {
+    if (CHAR_COLS !== CHAR_BASE && /deleted_at/.test(e.message || '')) {
+      CHAR_COLS = CHAR_BASE;
+      return fn(CHAR_COLS);
+    }
+    throw e;
+  }
+}
 const BUCKET = 'character-photos';
 
 let apiPromise = null;
@@ -72,18 +85,18 @@ async function supabaseApi(cfg) {
     },
     async getRoster(sceneIds) {
       if (!sceneIds.length) return [];
-      const rows = check(
+      const rows = await withCharCols(async (cols) => check(
         await sb
           .from('scene_characters')
-          .select(`id,scene_id,added_by_device,added_at,characters(${CHAR_COLS})`)
+          .select(`id,scene_id,added_by_device,added_at,characters(${cols})`)
           .in('scene_id', sceneIds)
           .order('added_at'),
-      );
+      ));
       return flattenRoster(rows);
     },
     async getCharacters(ids) {
       if (!ids.length) return [];
-      return check(await sb.from('characters').select(CHAR_COLS).in('id', ids));
+      return withCharCols(async (cols) => check(await sb.from('characters').select(cols).in('id', ids)));
     },
     async createCharacter(c) {
       check(await sb.from('characters').insert(c));
@@ -95,6 +108,18 @@ async function supabaseApi(cfg) {
         }),
       );
       if (!ok) throw new Error('This device does not hold the key for that character.');
+    },
+    async deleteCharacter(id, key) {
+      const ok = check(await sb.rpc('delete_character', { p_character_id: id, p_key: key }));
+      if (!ok) throw new Error('This device does not hold the key for that character.');
+    },
+    async savePushSubscription(deviceId, endpoint, p256dh, auth, characterIds) {
+      check(await sb.rpc('save_push_subscription', {
+        p_device_id: deviceId, p_endpoint: endpoint, p_p256dh: p256dh, p_auth: auth, p_character_ids: characterIds,
+      }));
+    },
+    async removePushSubscription(endpoint) {
+      check(await sb.rpc('remove_push_subscription', { p_endpoint: endpoint }));
     },
     async deleteScene(sceneId, deviceId) {
       return !!check(await sb.rpc('delete_scene', { p_scene_id: sceneId, p_device_id: deviceId }));
@@ -206,7 +231,7 @@ function mockApi(base) {
   };
   const names = [
     'getSceneBySlug', 'getScenesBySlugs', 'getScenesByIds', 'createScene', 'updateScene', 'joinScene', 'getParticipants', 'setPlayerName',
-    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'getMentions', 'deleteScene', 'addToScene', 'removeFromScene',
+    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'getMentions', 'deleteScene', 'deleteCharacter', 'savePushSubscription', 'removePushSubscription', 'addToScene', 'removeFromScene',
     'getSceneIdsForCharacters', 'getPosts', 'getAllPosts', 'getLatestPost', 'createPost', 'updatePost', 'deletePost',
   ];
   const api = {};

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getApi } from '../api.js';
-import { useStore, update, setSceneHidden, getState } from '../store.js';
+import { useStore, update, setSceneHidden, getState, forgetMyCharacter } from '../store.js';
 import { go } from '../router.js';
 import { Avatar, Icon, Segmented, Sheet, toast, errMsg } from '../ui.jsx';
 import { timeAgo, universeKey, sceneUrl, copyText, slugFromInput, isIOS, isStandalone, inAppBrowser } from '../util.js';
@@ -290,7 +290,8 @@ function MyCharacters({ ids }) {
         const m = {};
         links.forEach((l) => byId[l.scene_id] && (m[l.character_id] = m[l.character_id] || []).push(byId[l.scene_id]));
         if (!live.current) return;
-        setChars(list);
+        list.filter((c) => c.deleted_at).forEach((c) => forgetMyCharacter(c.id));
+        setChars(list.filter((c) => !c.deleted_at));
         setSceneMap(m);
       } catch (e) {
         toast(errMsg(e), 'error');
@@ -343,7 +344,8 @@ function MyCharacters({ ids }) {
           </ul>
         </section>
       ))}
-      <CharacterForm open={!!editing} character={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); setTick((t) => t + 1); }} />
+      <CharacterForm open={!!editing} character={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); setTick((t) => t + 1); }}
+        onDeleted={() => { setEditing(null); setTick((t) => t + 1); }} />
       <ShareCharacterSheet character={sharing} onClose={() => setSharing(null)} />
     </>
   );

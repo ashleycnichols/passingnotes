@@ -438,3 +438,14 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); box-sh
 .ooc-foot { border-top: 1px solid var(--border); padding: 10px; }
 .ooc-foot .composer.docked { border: 0; box-shadow: none; padding: 0; background: none; }
 .ooc-foot .composer.docked textarea { font-size: 15px; }
+
+.delete-char { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; }
+
+/* portrait cropper */
+.cropper { display: grid; justify-items: center; gap: 12px; }
+.crop-view { position: relative; overflow: hidden; border-radius: 16px; background: #111; touch-action: none; cursor: grab; user-select: none; }
+.crop-view:active { cursor: grabbing; }
+.crop-view img { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; }
+.crop-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 999px rgb(0 0 0 / 0.45); border: 2px solid rgb(255 255 255 / 0.85); pointer-events: none; }
+.crop-zoom { display: flex; align-items: center; gap: 10px; width: 260px; }
+.crop-zoom input { flex: 1; accent-color: var(--text); }

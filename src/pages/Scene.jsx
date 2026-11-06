@@ -12,6 +12,7 @@ import { CharacterForm, ShareCharacterSheet } from '../components/Characters.jsx
 import { ExportSheet } from '../components/Export.jsx';
 import { LookPicker } from '../components/Look.jsx';
 import { InviteSheet } from './NewScene.jsx';
+import { usePushStatus, enablePush, disablePush } from '../push.js';
 
 const PAGE = 50;
 const MAX_PLAYERS = 10;
@@ -30,7 +31,7 @@ function scrollToBottom(smooth = false) {
   window.scrollTo({ top: document.documentElement.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
 }
 
-export default function Scene({ slug }) {
+export default function Scene({ slug, jumpPost }) {
   const deviceId = useStore((s) => s.deviceId);
   const myChars = useStore((s) => s.myCharacters);
   const textSize = useStore((s) => s.textSize);
@@ -347,6 +348,15 @@ export default function Scene({ slug }) {
     }
   };
 
+  // Opened from a notification: jump to the tagged post once the story has loaded.
+  const jumped = useRef(false);
+  useEffect(() => {
+    if (!jumpPost || jumped.current || !posts.story.length) return;
+    jumped.current = true;
+    history.replaceState(null, '', `#/s/${slug}`);
+    jumpTo(jumpPost);
+  }, [jumpPost, posts.story.length]);
+
   const deleteScene = async () => {
     try {
       const api = await getApi();
@@ -610,6 +620,7 @@ export default function Scene({ slug }) {
           <button onClick={() => setSheet('export')}><Icon name="download" /> Export scene</button>
           <button onClick={() => setSheet('text')}><Icon name="book" /> Text size</button>
           {joined && (view === 'ooc' || desktop) && <button onClick={() => setSheet('name')}><Icon name="edit" /> Change my OOC name</button>}
+          <NotifyMenuItem onNeedsSettings={() => { setSheet(null); go('/settings'); }} />
           {scene.created_by_device === deviceId && (
             <button className="danger-text" onClick={() => setSheet('delete')}><Icon name="trash" /> Delete scene</button>
           )}
@@ -708,7 +719,8 @@ export default function Scene({ slug }) {
       <ExportSheet open={sheet === 'export'} onClose={() => setSheet(null)} scene={scene} charsById={charsById} playersByDevice={playersByDevice} />
 
       <CharacterForm open={!!charForm} character={charForm?.character || null} scene={charForm?.character ? null : scene}
-        onClose={() => setCharForm(null)} onSaved={(c) => characterSaved(c, !charForm?.character)} />
+        onClose={() => setCharForm(null)} onSaved={(c) => characterSaved(c, !charForm?.character)}
+        onDeleted={async (c) => { setCharForm(null); setExtraChars((m) => ({ ...m, [c.id]: { ...c, deleted_at: new Date().toISOString() } })); await loadRoster(scene.id); sub.current?.broadcastCharacter(c.id); }} />
       <ShareCharacterSheet character={sharing} onClose={() => setSharing(null)} />
 
       <Confirm open={!!confirmDel && !confirmDel.removeChar} title="Delete this post?" body="This can’t be undone."
@@ -737,7 +749,7 @@ function AddCharacterPicker({ ids, sceneUniverse, onPick, onNew }) {
   const key = ids.join(',');
   useEffect(() => {
     let alive = true;
-    getApi().then((api) => api.getCharacters(ids)).then((l) => alive && setChars(l)).catch(() => alive && setChars([]));
+    getApi().then((api) => api.getCharacters(ids)).then((l) => alive && setChars(l.filter((c) => !c.deleted_at))).catch(() => alive && setChars([]));
     return () => { alive = false; };
   }, [key]);
   const uk = universeKey(sceneUniverse);
@@ -845,5 +857,27 @@ function DeleteSceneForm({ scene, onExport, onDelete }) {
       </label>
       <button className="btn danger block" disabled={!ok || busy}>{busy ? 'Deleting…' : 'Delete scene for everyone'}</button>
     </form>
+  );
+}
+
+function NotifyMenuItem({ onNeedsSettings }) {
+  const [status, setStatus] = usePushStatus();
+  if (!status || status === 'unsupported') return null;
+  if (status === 'on') {
+    return <button onClick={async () => setStatus(await disablePush())}><Icon name="check" /> Tag notifications on (tap to turn off)</button>;
+  }
+  if (status === 'needs-install' || status === 'denied') {
+    return <button onClick={onNeedsSettings}><Icon name="chat" /> Get notified when I’m tagged…</button>;
+  }
+  return (
+    <button onClick={async () => {
+      try {
+        const s = await enablePush();
+        setStatus(s);
+        if (s === 'on') toast('You’ll get a notification when someone tags your characters.');
+      } catch (e) {
+        toast(errMsg(e), 'error');
+      }
+    }}><Icon name="chat" /> Notify me when I’m tagged</button>
   );
 }

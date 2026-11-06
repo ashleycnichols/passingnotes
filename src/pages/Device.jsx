@@ -6,6 +6,7 @@ import { go } from '../router.js';
 import { Avatar, Icon, Segmented, toast, errMsg } from '../ui.jsx';
 import { baseUrl, copyText, decodeData, encodeData, isIOS, isStandalone, isUuid, shareOrCopy, inAppBrowser, canPromptInstall, onInstallChange, promptInstall } from '../util.js';
 import { TEXT_SIZES } from '../look.js';
+import { usePushStatus, enablePush, disablePush } from '../push.js';
 
 function Shell({ title, children, back = '/' }) {
   return (
@@ -111,6 +112,7 @@ export function Settings() {
       {!storageWorks() && <p className="error-box">This browser is blocking storage (private mode?). Your characters won’t be remembered after you close it.</p>}
 
       <HomeScreenSection />
+      <NotificationsSection />
 
       <section className="settings-block">
         <h2>Your name in OOC chat</h2>
@@ -213,6 +215,43 @@ export function HomeScreenSection() {
           <li>Open your browser menu (<strong>⋮</strong> or <strong>•••</strong>).</li>
           <li>Tap <strong>Add to Home screen</strong> or <strong>Install app</strong>.</li>
         </ol>
+      )}
+    </section>
+  );
+}
+
+function NotificationsSection() {
+  const [status, setStatus] = usePushStatus();
+  const [busy, setBusy] = useState(false);
+  if (!status || status === 'unsupported') return null;
+  const run = async (fn) => {
+    setBusy(true);
+    try {
+      setStatus(await fn());
+    } catch (e) {
+      toast(errMsg(e), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="settings-block" id="notifications">
+      <h2>Tag notifications</h2>
+      <p className="muted small">Get a notification on this device when someone tags one of your characters.</p>
+      {status === 'needs-install' && (
+        <p className="warning">On iPhone, notifications only work from the Home Screen app. Add it to your Home Screen (above), open it from the new icon, then turn this on.</p>
+      )}
+      {status === 'denied' && (
+        <p className="warning">Notifications are blocked for this site. Turn them back on in your phone or browser settings for Passing Notes, then come back here.</p>
+      )}
+      {status === 'off' && (
+        <button className="btn primary block" disabled={busy} onClick={() => run(enablePush)}><Icon name="chat" size={18} /> Notify me when I’m tagged</button>
+      )}
+      {status === 'on' && (
+        <>
+          <p className="ok-box"><Icon name="check" size={16} /> On for this device. You’ll hear about tags on any of your characters.</p>
+          <button className="btn small" disabled={busy} onClick={() => run(disablePush)}>Turn off</button>
+        </>
       )}
     </section>
   );
