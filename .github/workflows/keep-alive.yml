@@ -1,0 +1,16 @@
+name: Keep Supabase awake
+
+# Free Supabase projects pause after 7 days without activity. This reads one row every 3 days.
+on:
+  schedule:
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          curl -fsS "https://lkuzjmwgwnnwenkhfmbm.supabase.co/rest/v1/scenes?select=id&limit=1" \
+            -H "apikey: sb_publishable_Q1JZZLILE0QBM_Dr7lp_sw_EalJXYi4" > /dev/null
