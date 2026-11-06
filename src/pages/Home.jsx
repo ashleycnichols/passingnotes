@@ -18,6 +18,7 @@ export default function Home() {
   const [scenes, setScenes] = useState(null);
   const [roster, setRoster] = useState([]);
   const [latest, setLatest] = useState({});
+  const [mentions, setMentions] = useState([]);
   const [showHidden, setShowHidden] = useState(false);
   const [menuFor, setMenuFor] = useState(null);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -40,6 +41,7 @@ export default function Home() {
         if (!live) return;
         setRoster(r);
         setLatest(Object.fromEntries(l));
+        api.getMentions(ids, getState().myCharacters.map((c) => c.id)).then((m) => live && setMentions(m)).catch(() => {});
       } catch (e) {
         if (live) {
           setErr(errMsg(e));
@@ -90,6 +92,8 @@ export default function Home() {
     const rs = rosterBy[s.id] || [];
     const lp = latest[s.id];
     const lc = lp?.character_id ? charsById[lp.character_id] : null;
+    const seen = meta[s.slug]?.lastOpenedAt;
+    const tagged = mentions.some((m) => m.scene_id === s.id && m.author_device_id !== getState().deviceId && (!seen || m.created_at > seen));
     const unread = lp && (!meta[s.slug]?.lastOpenedAt || lp.created_at > meta[s.slug].lastOpenedAt) && lp.author_device_id !== getState().deviceId;
     return (
       <li key={s.id}>
@@ -104,7 +108,12 @@ export default function Home() {
               <Icon name="more" />
             </button>
           </div>
-          {s.universe && <div className="universe-label">{s.universe}</div>}
+          {(s.universe || tagged) && (
+            <div className="card-labels">
+              {s.universe && <span className="universe-label">{s.universe}</span>}
+              {tagged && <span className="tagged-badge">@ You were tagged</span>}
+            </div>
+          )}
           {lp ? (
             <p className="preview">
               {lp.kind === 'narrator' ? <span className="who muted">Narrator: </span> : lc ? <span className="who" style={{ color: readableColor(lc.color, chromeSurface()) }}>{lc.name}: </span> : null}

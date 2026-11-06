@@ -134,6 +134,11 @@ export default function Composer({ slug, channel, identity, identityChar, onPick
   };
 
   const onKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && channel === 'ooc') {
+      e.preventDefault();
+      send();
+      return;
+    }
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       send();
@@ -161,6 +166,7 @@ export default function Composer({ slug, channel, identity, identityChar, onPick
           </button>
         )}
         <textarea ref={taRef} rows={1} value={value} disabled={disabled} placeholder={label} aria-label={label}
+          enterKeyHint={ooc ? 'send' : 'enter'}
           onChange={(e) => setValue(e.target.value)} onKeyDown={onKey}
           onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 150)} />
         <button type="button" className="send-btn" onMouseDown={(e) => e.preventDefault()} onClick={send}

@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
 import { Avatar, Icon, toast } from '../ui.jsx';
-import { RichText, decodeTags, encodeTags, plainText } from '../text.jsx';
+import { RichText, decodeTags, encodeTags, plainText, firstLine } from '../text.jsx';
 import { TextTools } from './Composer.jsx';
 import { clockTime, dayLabel, copyText } from '../util.js';
 
 const GROUP_MS = 5 * 60 * 1000;
 
-export default function Feed({ posts, channel, ctx, canEdit, onEdit, onDelete, participantsByDevice, rosterByDevice, emptyText }) {
+export default function Feed({ posts, channel, ctx, canEdit, onEdit, onDelete, participantsByDevice, rosterByDevice, emptyText, storyById = {}, myIds = new Set(), onJump }) {
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   if (!posts.length) {
@@ -27,7 +27,8 @@ export default function Feed({ posts, channel, ctx, canEdit, onEdit, onDelete, p
       (p.kind === 'player' ? prev.author_device_id === p.author_device_id : prev.character_id === p.character_id) &&
       new Date(p.created_at) - new Date(prev.created_at) < GROUP_MS;
     items.push(
-      <Post key={p.id} post={p} grouped={!!sameAuthor} ctx={ctx} channel={channel}
+      <Post key={p.id} post={p} grouped={!!sameAuthor && !p.ref_post_id && !prev?.ref_post_id} ctx={ctx} channel={channel}
+        refPost={p.ref_post_id ? storyById[p.ref_post_id] : null} pingsMe={(p.tagged_character_ids || []).some((id) => myIds.has(id))} onJump={onJump}
         selected={selected === p.id} onSelect={() => setSelected(selected === p.id ? null : p.id)}
         canEdit={canEdit(p)} editing={editing === p.id}
         onStartEdit={() => { setEditing(p.id); setSelected(null); }}
@@ -41,7 +42,7 @@ export default function Feed({ posts, channel, ctx, canEdit, onEdit, onDelete, p
   return <div className={`feed ${channel}`}>{items}</div>;
 }
 
-function Post({ post, grouped, ctx, channel, selected, onSelect, canEdit, editing, onStartEdit, onCancelEdit, onSave, onDelete, player, playerChars }) {
+function Post({ post, grouped, ctx, channel, selected, onSelect, canEdit, editing, onStartEdit, onCancelEdit, onSave, onDelete, player, playerChars, refPost, pingsMe, onJump }) {
   const c = post.character_id ? ctx.charsById[post.character_id] : null;
   const actions = selected && !editing && (
     <div className="post-actions" onClick={(e) => e.stopPropagation()}>
@@ -55,6 +56,22 @@ function Post({ post, grouped, ctx, channel, selected, onSelect, canEdit, editin
   ) : (
     <div className="post-body"><RichText body={post.body} ctx={ctx} /></div>
   );
+
+  if (channel === 'ooc' && post.ref_post_id) {
+    return (
+      <article className={`post ping${pingsMe ? ' for-me' : ''}`}>
+        <span className="ping-icon" aria-hidden="true">@</span>
+        <div className="ping-main">
+          <div className="ping-text"><RichText body={post.body} ctx={ctx} /></div>
+          {refPost && <p className="ping-quote">“{firstLine(refPost.body, ctx.charsById, 80)}”</p>}
+          <div className="ping-foot">
+            <button className="btn small" onClick={() => onJump(post.ref_post_id)}>Go to post</button>
+            <time className="muted">{clockTime(post.created_at)}</time>
+          </div>
+        </div>
+      </article>
+    );
+  }
 
   if (channel === 'ooc') {
     const name = player?.player_name || 'Player';
@@ -77,7 +94,7 @@ function Post({ post, grouped, ctx, channel, selected, onSelect, canEdit, editin
 
   if (post.kind === 'narrator') {
     return (
-      <article className={`post narrator${selected ? ' selected' : ''}`} onClick={editing ? undefined : onSelect}>
+      <article id={`post-${post.id}`} className={`post narrator${selected ? ' selected' : ''}`} onClick={editing ? undefined : onSelect}>
         <header className="narrator-head"><span>Narrator</span><time>{clockTime(post.created_at)}</time></header>
         {body}
         {actions}
@@ -87,7 +104,7 @@ function Post({ post, grouped, ctx, channel, selected, onSelect, canEdit, editin
 
   const color = c ? ctx.colorFor(c.color) : 'var(--muted)';
   return (
-    <article className={`post char-post${grouped ? ' grouped' : ''}${selected ? ' selected' : ''}`} style={{ '--char': c?.color || 'var(--border)' }}
+    <article id={`post-${post.id}`} className={`post char-post${grouped ? ' grouped' : ''}${selected ? ' selected' : ''}`} style={{ '--char': c?.color || 'var(--border)' }}
       onClick={editing ? undefined : onSelect}>
       <div className="post-av">{!grouped && <Avatar c={c || { name: '?', color: '#888888' }} size={38} />}</div>
       <div className="post-main">

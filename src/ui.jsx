@@ -135,7 +135,7 @@ export function Segmented({ value, options, onChange, label }) {
         <button key={o.value} role="tab" aria-selected={value === o.value} className={value === o.value ? 'on' : ''}
           onClick={() => onChange(o.value)}>
           {o.label}
-          {o.dot && <span className="dot" aria-label="new" />}
+          {o.dot === 'mention' ? <span className="dot mention" aria-label="you were tagged">@</span> : o.dot && <span className="dot" aria-label="new" />}
         </button>
       ))}
     </div>

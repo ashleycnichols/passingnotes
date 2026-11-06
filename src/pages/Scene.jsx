@@ -130,15 +130,18 @@ export default function Scene({ slug }) {
             const ch = row.channel;
             setPosts((prev) => ({ ...prev, [ch]: merge(prev[ch], [row]) }));
             const mine = row.author_device_id === getState().deviceId;
+            const owned = new Set(getState().myCharacters.map((c) => c.id));
+            const pingsMe = ch === 'ooc' && row.ref_post_id && (row.tagged_character_ids || []).some((id) => owned.has(id));
+            if (pingsMe && !mine && ch === viewRef.current) toast('You were tagged. Tap “Go to post” to see it.');
             if (ch !== viewRef.current) {
-              if (!mine) setUnread((u) => ({ ...u, [ch]: true }));
+              if (!mine) setUnread((u) => ({ ...u, [ch]: pingsMe || u[ch] === 'mention' ? 'mention' : true }));
             } else if (nearBottom() || mine) {
               requestAnimationFrame(() => scrollToBottom(true));
             } else {
               setNewPill(true);
             }
           },
-          onPostDeleted: (id) => setPosts((prev) => ({ story: prev.story.filter((p) => p.id !== id), ooc: prev.ooc.filter((p) => p.id !== id) })),
+          onPostDeleted: (id) => setPosts((prev) => ({ story: prev.story.filter((p) => p.id !== id), ooc: prev.ooc.filter((p) => p.id !== id && p.ref_post_id !== id) })),
           onRoster: () => loadRoster(s.id),
           onRosterDelete: () => loadRoster(s.id),
           onParticipants: () => loadParticipants(s.id),
@@ -249,6 +252,7 @@ export default function Scene({ slug }) {
       const saved = await api.createPost(row);
       setPosts((prev) => ({ ...prev, [view]: merge(prev[view], [saved]) }));
       requestAnimationFrame(() => scrollToBottom(true));
+      if (!ooc) await ping(saved, tagged);
     } catch (e) {
       toast(errMsg(e), 'error');
       throw e;
@@ -300,17 +304,52 @@ export default function Scene({ slug }) {
     [deviceId, myIds],
   );
 
+  // Drop a note in OOC chat so the players of tagged characters notice.
+  const ping = async (post, taggedIds) => {
+    const owned = new Set(getState().myCharacters.map((c) => c.id));
+    const targets = [...new Set(taggedIds)].filter((id) => !owned.has(id) && id !== post.character_id && charsById[id]);
+    if (!targets.length) return;
+    const by = post.kind === 'narrator' ? 'The Narrator' : charsById[post.character_id] ? `@[${charsById[post.character_id].name}](${post.character_id})` : 'Someone';
+    const names = targets.map((id) => `@[${charsById[id].name}](${id})`);
+    const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+    try {
+      const api = await getApi();
+      const note = await api.createPost({
+        scene_id: scene.id, channel: 'ooc', kind: 'player', character_id: null, author_device_id: deviceId,
+        body: `${by} tagged ${list} in the story.`, tagged_character_ids: targets, ref_post_id: post.id,
+      });
+      setPosts((prev) => ({ ...prev, ooc: merge(prev.ooc, [note]) }));
+    } catch {
+      // The story post went through; a missing ping is not worth an error.
+    }
+  };
+
   const editPost = async (p, body, tagged) => {
     const api = await getApi();
     const saved = await api.updatePost(p.id, { body, tagged_character_ids: tagged });
     setPosts((prev) => ({ ...prev, [p.channel]: merge(prev[p.channel], [saved]) }));
+    if (p.channel === 'story') {
+      const before = new Set(p.tagged_character_ids || []);
+      await ping(saved, tagged.filter((id) => !before.has(id)));
+    }
+  };
+
+  const jumpTo = (postId) => {
+    setView('story');
+    setTimeout(() => {
+      const el = document.getElementById(`post-${postId}`);
+      if (!el) return toast('That post is further back. Tap “Load earlier” to find it.');
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 1800);
+    }, 120);
   };
 
   const deletePost = async (p) => {
     try {
       const api = await getApi();
       await api.deletePost(p.id);
-      setPosts((prev) => ({ ...prev, [p.channel]: prev[p.channel].filter((x) => x.id !== p.id) }));
+      setPosts((prev) => ({ story: prev.story.filter((x) => x.id !== p.id), ooc: prev.ooc.filter((x) => x.id !== p.id && x.ref_post_id !== p.id) }));
     } catch (e) {
       toast(errMsg(e), 'error');
     }
@@ -373,6 +412,7 @@ export default function Scene({ slug }) {
   }
 
   const ctx = { charsById, colorFor, roster };
+  const storyById = Object.fromEntries(posts.story.map((p) => [p.id, p]));
   const list = posts[view];
   const identityChar = identity && identity !== 'narrator' ? charsById[identity] : null;
   const savedNotHere = myChars.map((c) => c.id).filter((id) => !roster.some((r) => r.id === id));
@@ -423,6 +463,7 @@ export default function Scene({ slug }) {
         )}
         {more[view] && <button className="btn ghost small center-block" onClick={loadEarlier}>Load earlier</button>}
         <Feed posts={list} channel={view} ctx={ctx} canEdit={canEdit} onEdit={editPost} onDelete={(p) => setConfirmDel(p)}
+          storyById={storyById} myIds={myIds} onJump={jumpTo}
           participantsByDevice={playersByDevice} rosterByDevice={rosterByDevice}
           emptyText={view === 'story' ? 'The stage is yours. Write the opening line, or post as Narrator to set the scene.' : 'Out-of-character chat lives here. Plans, questions, “brb”.'} />
         <div className="feed-spacer" />

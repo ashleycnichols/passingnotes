@@ -104,6 +104,10 @@ with sync_playwright() as pw:
     b.get_by_role('button', name='Send').click()
     expect(b.locator('.char-post .tag', has_text='Sterling Ashbourne')).to_be_visible()
 
+    # A gets pinged: @ badge on the OOC tab
+    expect(a.locator('.dot.mention')).to_be_visible(timeout=5000)
+    shot(a, '20-ping-badge')
+
     # A sees it live and, because Sterling is tagged, can edit it
     post = a.locator('.char-post', has_text='by the sleeve')
     expect(post).to_be_visible(timeout=5000)
@@ -130,9 +134,16 @@ with sync_playwright() as pw:
     a.get_by_role('tab', name='OOC chat').click()
     a.get_by_role('textbox', name='Your name for OOC chat').fill('Ashley')
     a.get_by_role('button', name='Start chatting').click()
+    ping = a.locator('.post.ping.for-me')
+    expect(ping).to_contain_text('Rowan tagged Sterling Ashbourne in the story.')
     a.locator('.composer textarea').fill('brb, kettle')
-    a.get_by_role('button', name='Send').click()
+    a.locator('.composer textarea').press('Enter')
     expect(a.locator('.ooc-post', has_text='brb, kettle')).to_be_visible()
+    assert a.locator('.composer textarea').input_value() == ''
+    shot(a, '21-ping-in-ooc')
+    ping.get_by_role('button', name='Go to post').click()
+    expect(a.get_by_role('tab', name='Story')).to_have_attribute('aria-selected', 'true')
+    a.get_by_role('tab', name='OOC chat').click()
     expect(b.locator('[role=tab][aria-selected=false] .dot')).to_be_visible(timeout=5000)
     shot(a, '09-a-ooc')
     a.get_by_role('tab', name='Story').click()

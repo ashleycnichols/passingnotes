@@ -135,6 +135,14 @@ async function supabaseApi(cfg) {
       }
       return out;
     },
+    async getMentions(sceneIds, characterIds) {
+      if (!sceneIds.length || !characterIds.length) return [];
+      return check(
+        await sb.from('posts').select('id,scene_id,author_device_id,created_at,tagged_character_ids')
+          .in('scene_id', sceneIds).eq('channel', 'ooc').not('ref_post_id', 'is', null)
+          .overlaps('tagged_character_ids', characterIds).order('created_at', { ascending: false }).limit(200),
+      );
+    },
     async getLatestPost(sceneId) {
       const rows = check(
         await sb.from('posts').select('*').eq('scene_id', sceneId).eq('channel', 'story').order('created_at', { ascending: false }).limit(1),
@@ -194,7 +202,7 @@ function mockApi(base) {
   };
   const names = [
     'getSceneBySlug', 'getScenesBySlugs', 'getScenesByIds', 'createScene', 'updateScene', 'joinScene', 'getParticipants', 'setPlayerName',
-    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'addToScene', 'removeFromScene',
+    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'getMentions', 'addToScene', 'removeFromScene',
     'getSceneIdsForCharacters', 'getPosts', 'getAllPosts', 'getLatestPost', 'createPost', 'updatePost', 'deletePost',
   ];
   const api = {};

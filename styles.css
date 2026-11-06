@@ -380,3 +380,18 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); box-sh
 .select-wrap::after { content: ''; position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
 .select-wrap select { width: 100%; appearance: none; -webkit-appearance: none; padding: 12px 40px 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); font-size: 16px; }
 .select-wrap select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+
+/* pings */
+.post.ping { display: flex; gap: 10px; margin: 10px 0; padding: 10px 12px; border-radius: 14px; border: 1px dashed var(--border); background: transparent; font-family: var(--ui-font); }
+.post.ping.for-me { border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.ping-icon { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-weight: 700; }
+.ping-main { flex: 1; min-width: 0; }
+.ping-text p { margin: 0; font-size: 0.95rem; }
+.ping-quote { margin: 4px 0 0; color: var(--muted); font-family: var(--story-font); font-style: italic; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ping-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.ping-foot time { font-size: 0.75rem; }
+.dot.mention { width: auto; height: 18px; min-width: 18px; padding: 0 5px; border-radius: 9px; color: #fff; font-size: 0.72rem; font-weight: 700; line-height: 18px; text-align: center; top: 6px; }
+.post.flash { animation: flash 1.8s ease-out; }
+@keyframes flash { 0%, 40% { background: color-mix(in srgb, var(--accent) 18%, transparent); } 100% { background: transparent; } }
+.card-labels { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tagged-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 2px 8px; border-radius: 999px; }

@@ -94,6 +94,7 @@ const api = {
     return list.sort((a, b) => a.created_at.localeCompare(b.created_at)).slice(-limit);
   },
   getAllPosts: (sceneId, channels) => db.posts.filter((p) => p.scene_id === sceneId && channels.includes(p.channel)).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+  getMentions: (sceneIds, ids) => db.posts.filter((p) => sceneIds.includes(p.scene_id) && p.channel === 'ooc' && p.ref_post_id && (p.tagged_character_ids || []).some((t) => ids.includes(t))),
   getLatestPost: (sceneId) => db.posts.filter((p) => p.scene_id === sceneId && p.channel === 'story').sort((a, b) => b.created_at.localeCompare(a.created_at))[0] || null,
   createPost(p) {
     const row = { id: randomUUID(), created_at: now(), updated_at: now(), tagged_character_ids: [], ...p };
@@ -109,8 +110,9 @@ const api = {
     return p;
   },
   deletePost(id) {
-    db.posts = db.posts.filter((p) => p.id !== id);
-    emitAll({ type: 'postDeleted', id });
+    const gone = db.posts.filter((p) => p.id === id || p.ref_post_id === id).map((p) => p.id);
+    db.posts = db.posts.filter((p) => !gone.includes(p.id));
+    gone.forEach((g) => emitAll({ type: 'postDeleted', id: g }));
   },
   uploadPhoto: (_id, dataUrl) => dataUrl,
   broadcast(sceneId, ev) {
