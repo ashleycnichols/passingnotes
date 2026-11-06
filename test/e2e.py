@@ -200,8 +200,27 @@ with sync_playwright() as pw:
     d.goto(backup)
     expect(d.get_by_text('Restored 1 character and 1 scene')).to_be_visible()
 
+    # ---- honour-system reclaim: Rowan's player on a fresh phone
+    rctx, r = phone(browser)
+    r.goto(f'{BASE}/#/s/{slug}')
+    r.get_by_role('button', name='Join this scene').click()
+    r.get_by_role('button', name='Already playing here on another device? Reclaim your character').click()
+    row = r.locator('.char-row', has_text='Rowan')
+    row.get_by_role('button', name='This is mine').click()
+    shot(r, '17-reclaim-confirm')
+    r.get_by_role('button', name='Yes, it’s mine').click()
+    expect(r.get_by_role('textbox', name='Write as Rowan…')).to_be_visible()
+    # Rowan's old posts are editable again on the new phone
+    old_post = r.locator('.char-post', has_text='stumbles after')
+    old_post.locator('.post-body').click()
+    expect(old_post.get_by_role('button', name='Edit')).to_be_visible()
+    # everyone sees the note in OOC
+    b.get_by_role('tab', name='OOC chat').click()
+    expect(b.locator('.ooc-post', has_text='was reclaimed')).to_be_visible(timeout=5000)
+    shot(b, '18-reclaim-note')
+
     # ---- the 10-player limit
-    for i in range(7):  # A, B and the claimed device already make 3
+    for i in range(6):  # A, B, the claimed device and the reclaim device already make 4
         x, xp = phone(browser)
         xp.goto(f'{BASE}/#/s/{slug}')
         xp.get_by_role('button', name='Join this scene').click()

@@ -87,7 +87,7 @@ code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; background
 }
 .topbar-title { flex: 1; font-size: 1.05rem; text-align: center; font-weight: 600; }
 .brand { flex: 1; display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.01em; padding-left: 4px; }
-.brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--text); color: var(--bg); }
+.brand-logo { width: 32px; height: 32px; border-radius: 8px; display: block; }
 .content { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
 .content.narrow { max-width: 560px; }
 
@@ -360,3 +360,17 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); box-sh
   .print-doc { padding: 0; max-width: none; }
   @page { margin: 18mm 16mm; }
 }
+
+/* home screen section */
+.hs-head { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+.hs-head h2 { margin-bottom: 2px; }
+.hs-head p { margin: 0; }
+.hs-icon { border-radius: 13px; box-shadow: var(--shadow); flex: none; }
+.steps { margin: 0 0 12px; padding-left: 22px; display: grid; gap: 10px; line-height: 1.5; }
+.steps li::marker { font-weight: 700; color: var(--muted); }
+.key { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border); vertical-align: -7px; color: var(--accent); }
+.steps svg { vertical-align: -3px; }
+.ok-box { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, #2b8a3e 14%, transparent); }
+.tip.warn { background: color-mix(in srgb, #f08c00 14%, var(--surface)); }
+.tip .link-btn { padding: 0; }
+.inapp-note { margin: 0 0 8px !important; color: var(--text) !important; }

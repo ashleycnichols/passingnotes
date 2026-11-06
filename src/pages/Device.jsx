@@ -1,10 +1,10 @@
 // Claim a character link, restore a backup, device settings, and "How it works".
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { getApi } from '../api.js';
 import { addMyCharacter, backupPayload, getState, rememberScene, restoreFrom, update, useStore, storageWorks } from '../store.js';
 import { go } from '../router.js';
 import { Avatar, Icon, Segmented, toast, errMsg } from '../ui.jsx';
-import { baseUrl, copyText, decodeData, encodeData, isIOS, isStandalone, isUuid, shareOrCopy } from '../util.js';
+import { baseUrl, copyText, decodeData, encodeData, isIOS, isStandalone, isUuid, shareOrCopy, inAppBrowser, canPromptInstall, onInstallChange, promptInstall } from '../util.js';
 import { TEXT_SIZES } from '../look.js';
 
 function Shell({ title, children, back = '/' }) {
@@ -110,6 +110,8 @@ export function Settings() {
     <Shell title="Settings">
       {!storageWorks() && <p className="error-box">This browser is blocking storage (private mode?). Your characters won’t be remembered after you close it.</p>}
 
+      <HomeScreenSection />
+
       <section className="settings-block">
         <h2>Your name in OOC chat</h2>
         <form className="inline-form" onSubmit={(e) => { e.preventDefault(); update((s) => (s.playerName = name.trim().slice(0, 40))); toast('Saved'); }}>
@@ -142,7 +144,7 @@ export function Settings() {
 
       <section className="settings-block">
         <h2>Keeping things saved</h2>
-        <p>Your characters live in this browser, not in an account.{isIOS() && !isStandalone() ? ' On iPhone, add the app to your Home Screen (Share, then Add to Home Screen) so Safari doesn’t clear it after a few weeks away.' : ''} Keep a backup link somewhere safe.</p>
+        <p>Your characters live in this browser, not in an account. Adding the app to your Home Screen and keeping a backup link are the two best ways to never lose them.</p>
       </section>
 
       <button className="link-btn center-block" onClick={() => go('/how')}>How it works</button>
@@ -168,5 +170,50 @@ export function HowItWorks() {
         <p>Open a character and choose “Use on another device” to send its link to yourself. To move everything at once, use the backup link in Settings.</p>
       </div>
     </Shell>
+  );
+}
+
+export function HomeScreenSection() {
+  const canInstall = useSyncExternalStore(onInstallChange, canPromptInstall);
+  const app = inAppBrowser();
+  const url = baseUrl();
+  return (
+    <section className="settings-block" id="home-screen">
+      <div className="hs-head">
+        <img src="icons/icon-192.png" alt="" width="56" height="56" className="hs-icon" />
+        <div>
+          <h2>Add to Home Screen</h2>
+          <p className="muted small">Opens full screen like an app, and keeps your characters saved.</p>
+        </div>
+      </div>
+      {isStandalone() ? (
+        <p className="ok-box"><Icon name="check" size={16} /> You’re using the Home Screen app. All set.</p>
+      ) : app ? (
+        <>
+          <p className="warning">You’re inside {app}’s built-in browser. It keeps its own separate storage, so open the app in Safari (or Chrome) first, then add it from there.</p>
+          <ol className="steps">
+            <li>Tap the <strong>•••</strong> or <Icon name="share" size={16} /> menu in {app}.</li>
+            <li>Choose <strong>Open in Safari</strong> (or Open in browser).</li>
+            <li>Come back to Settings there and follow the steps.</li>
+          </ol>
+          <button className="btn" onClick={async () => { await copyText(url); toast('Link copied. Paste it into Safari.'); }}><Icon name="copy" size={18} /> Copy link to paste into Safari</button>
+        </>
+      ) : canInstall ? (
+        <button className="btn primary block" onClick={async () => { if (await promptInstall()) toast('Added to your Home Screen'); }}>
+          <Icon name="plus" size={18} /> Add to Home Screen
+        </button>
+      ) : isIOS() ? (
+        <ol className="steps">
+          <li>Tap the <strong>Share</strong> button <span className="key"><Icon name="share" size={16} /></span> in Safari’s toolbar. In Chrome it’s at the top right.</li>
+          <li>Scroll down and tap <strong>Add to Home Screen</strong> <span className="key"><Icon name="plus" size={16} /></span>. If you don’t see it, tap <strong>View More</strong> or <strong>Edit Actions</strong> first.</li>
+          <li>Tap <strong>Add</strong>. Open Passing Notes from the new icon from now on.</li>
+        </ol>
+      ) : (
+        <ol className="steps">
+          <li>Open your browser menu (<strong>⋮</strong> or <strong>•••</strong>).</li>
+          <li>Tap <strong>Add to Home screen</strong> or <strong>Install app</strong>.</li>
+        </ol>
+      )}
+    </section>
   );
 }

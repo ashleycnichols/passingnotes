@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getApi } from '../api.js';
-import { getState, update, useStore, rememberScene, rememberUniverse, ownsCharacter, keyFor } from '../store.js';
+import { getState, update, useStore, rememberScene, rememberUniverse, addMyCharacter } from '../store.js';
 import { go } from '../router.js';
 import { Avatar, Confirm, Icon, Segmented, Sheet, toast, errMsg, UniverseInput } from '../ui.jsx';
 import { encodeTags } from '../text.jsx';
 import { themeOf, themeStyle, readableColor, TEXT_SIZES } from '../look.js';
-import { universeKey } from '../util.js';
+import { universeKey, inAppBrowser } from '../util.js';
 import Feed from '../components/Feed.jsx';
 import Composer from '../components/Composer.jsx';
 import { CharacterForm, ShareCharacterSheet } from '../components/Characters.jsx';
@@ -52,6 +52,7 @@ export default function Scene({ slug }) {
   const [charForm, setCharForm] = useState(null); // { character? }
   const [sharing, setSharing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [reclaiming, setReclaiming] = useState(null);
   const [descOpen, setDescOpen] = useState(!seenDesc);
   const [online, setOnline] = useState(navigator.onLine);
 
@@ -266,8 +267,36 @@ export default function Scene({ slug }) {
     }
   };
 
+  // Honour system: anyone can take over a character in this scene. Everyone sees a note in OOC.
+  const reclaim = async (c) => {
+    try {
+      const api = await getApi();
+      if (!joined) {
+        const r = await api.joinScene(scene.id, deviceId, getState().playerName);
+        if (r === 'full') return toast('This scene is full (10 players).', 'error');
+        rememberScene(slug);
+      }
+      const key = await api.reclaimCharacter(c.id, scene.id);
+      if (!key) return toast('That character is no longer in this scene.', 'error');
+      addMyCharacter(c.id, key);
+      setIdentity(c.id);
+      const note = await api.createPost({
+        scene_id: scene.id, channel: 'ooc', kind: 'player', character_id: null, author_device_id: deviceId,
+        body: `@[${c.name}](${c.id}) was reclaimed on a new device.`, tagged_character_ids: [c.id],
+      });
+      setPosts((prev) => ({ ...prev, ooc: merge(prev.ooc, [note]) }));
+      await loadParticipants(scene.id);
+      setSheet(null);
+      toast(`You’re playing ${c.name} on this device`);
+    } catch (e) {
+      toast(errMsg(e), 'error');
+    }
+  };
+
   const canEdit = useCallback(
-    (p) => p.author_device_id === deviceId || (p.channel === 'story' && (p.tagged_character_ids || []).some((id) => myIds.has(id))),
+    (p) => p.author_device_id === deviceId
+      || (p.channel === 'story' && p.character_id && myIds.has(p.character_id))
+      || (p.channel === 'story' && (p.tagged_character_ids || []).some((id) => myIds.has(id))),
     [deviceId, myIds],
   );
 
@@ -419,7 +448,10 @@ export default function Scene({ slug }) {
           {full ? (
             <p>This scene is full (10 players). You can still read along.</p>
           ) : (
-            <button className="btn primary block" onClick={() => setSheet('join')}>Join this scene</button>
+            <>
+              {inAppBrowser() && <p className="small inapp-note">You’re in {inAppBrowser()}’s browser, which forgets your characters. For best results, open this link in Safari or Chrome.</p>}
+              <button className="btn primary block" onClick={() => setSheet('join')}>Join this scene</button>
+            </>
           )}
         </div>
       )}
@@ -455,6 +487,9 @@ export default function Scene({ slug }) {
                     <strong style={{ color: colorFor(c.color) }}>{c.name}</strong>
                     <span className="muted small">{mine ? 'You' : playersByDevice[c.added_by_device]?.player_name || ''}</span>
                   </div>
+                  {!mine && (
+                    <button className="btn ghost small" onClick={() => { setSheet(null); setReclaiming(c); }}>This is mine</button>
+                  )}
                   {mine && (
                     <div className="row-actions">
                       <button className="icon-btn small" aria-label={`Edit ${c.name}`} onClick={() => { setSheet(null); setCharForm({ character: c }); }}><Icon name="edit" size={18} /></button>
@@ -467,7 +502,7 @@ export default function Scene({ slug }) {
             })}
           </ul>
         )}
-        <p className="muted small">{participants.length} of {MAX_PLAYERS} players have joined.</p>
+        <p className="muted small">{participants.length} of {MAX_PLAYERS} players have joined. Lost access to your character on a new phone? Tap “This is mine” next to it.</p>
       </Sheet>
 
       <Sheet open={sheet === 'identity'} onClose={() => setSheet(null)} title="Posting as">
@@ -502,6 +537,9 @@ export default function Scene({ slug }) {
         <AddCharacterPicker ids={myChars.map((c) => c.id)} sceneUniverse={scene.universe} onPick={(id) => join(id)}
           onNew={async () => { if (await join(null)) setCharForm({}); }} />
         <button className="link-btn center-block" onClick={() => join(null)}>Just join for now</button>
+        {roster.length > 0 && (
+          <button className="link-btn center-block" onClick={() => setSheet('roster')}>Already playing here on another device? Reclaim your character</button>
+        )}
       </Sheet>
 
       <Sheet open={sheet === 'settings'} onClose={() => setSheet(null)} title="Scene settings">
@@ -511,6 +549,11 @@ export default function Scene({ slug }) {
       <Sheet open={sheet === 'name'} onClose={() => setSheet(null)} title="Your name in OOC chat">
         <PlayerNameForm initial={playerName} onSave={saveName} />
       </Sheet>
+
+      <Confirm open={!!reclaiming} title={`Is ${reclaiming?.name || ''} your character?`} confirmLabel="Yes, it’s mine" danger={false}
+        body={`This device will be able to post and edit as ${reclaiming?.name || ''}. Everyone will see a note in OOC chat. Only do this for your own character.`}
+        onCancel={() => setReclaiming(null)}
+        onConfirm={() => { const c = reclaiming; setReclaiming(null); reclaim(c); }} />
 
       <ExportSheet open={sheet === 'export'} onClose={() => setSheet(null)} scene={scene} charsById={charsById} playersByDevice={playersByDevice} />
 

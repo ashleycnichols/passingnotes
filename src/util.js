@@ -143,3 +143,42 @@ export function isIOS() {
 export function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 }
+
+// Discord, Messenger, Instagram etc. open links in their own browser, which keeps separate storage.
+export function inAppBrowser() {
+  const ua = navigator.userAgent || '';
+  if (/Discord/i.test(ua)) return 'Discord';
+  if (/FBAN|FBAV|FB_IAB|Messenger/i.test(ua)) return 'Messenger';
+  if (/Instagram/i.test(ua)) return 'Instagram';
+  if (/WhatsApp/i.test(ua)) return 'WhatsApp';
+  if (/Line\//i.test(ua)) return 'LINE';
+  return null;
+}
+
+// Chrome and Edge (Android, desktop) offer a real install prompt. Safari does not.
+let installEvent = null;
+const installListeners = new Set();
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installEvent = e;
+  installListeners.forEach((l) => l());
+});
+window.addEventListener('appinstalled', () => {
+  installEvent = null;
+  installListeners.forEach((l) => l());
+});
+export function canPromptInstall() {
+  return !!installEvent;
+}
+export function onInstallChange(l) {
+  installListeners.add(l);
+  return () => installListeners.delete(l);
+}
+export async function promptInstall() {
+  if (!installEvent) return false;
+  installEvent.prompt();
+  const { outcome } = await installEvent.userChoice;
+  installEvent = null;
+  installListeners.forEach((l) => l());
+  return outcome === 'accepted';
+}

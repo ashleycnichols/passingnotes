@@ -65,6 +65,10 @@ const api = {
     if (!c) throw new Error('This device does not hold the key for that character.');
     Object.assign(c, f, { updated_at: now() });
   },
+  reclaimCharacter(id, sceneId) {
+    if (!db.links.some((l) => l.character_id === id && l.scene_id === sceneId)) return null;
+    return db.characters.find((c) => c.id === id)?.owner_key || null;
+  },
   verifyKey: (id, key) => db.characters.some((c) => c.id === id && c.owner_key === key),
   addToScene(sceneId, characterId, deviceId) {
     if (db.links.some((l) => l.scene_id === sceneId && l.character_id === characterId)) return;

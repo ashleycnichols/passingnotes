@@ -3,7 +3,7 @@ import { getApi } from '../api.js';
 import { useStore, update, setSceneHidden, getState } from '../store.js';
 import { go } from '../router.js';
 import { Avatar, Icon, Segmented, Sheet, toast, errMsg } from '../ui.jsx';
-import { timeAgo, universeKey, sceneUrl, copyText, slugFromInput, isIOS, isStandalone } from '../util.js';
+import { timeAgo, universeKey, sceneUrl, copyText, slugFromInput, isIOS, isStandalone, inAppBrowser } from '../util.js';
 import { firstLine } from '../text.jsx';
 import { readableColor, chromeSurface } from '../look.js';
 import { CharacterForm, ShareCharacterSheet } from '../components/Characters.jsx';
@@ -83,7 +83,8 @@ export default function Home() {
   const hiddenCount = (scenes || []).filter((s) => meta[s.slug]?.hidden).length;
   const setFilter = (f) => update((s) => (s.homeFilter = f));
 
-  const showTip = isIOS() && !isStandalone() && !dismissedTip && myScenes.length > 0;
+  const showTip = (isIOS() || !!inAppBrowser()) && !isStandalone() && !dismissedTip && myScenes.length > 0;
+  const app = inAppBrowser();
 
   const card = (s) => {
     const rs = rosterBy[s.id] || [];
@@ -138,7 +139,7 @@ export default function Home() {
     <div className="page home">
       <header className="topbar">
         <div className="brand">
-          <span className="brand-mark"><Icon name="feather" size={18} /></span>
+          <img className="brand-logo" src="icons/icon-192.png" alt="" width="32" height="32" />
           <span>{window.PN_CONFIG?.appName || 'Passing Notes'}</span>
         </div>
         <button className="icon-btn" onClick={() => go('/settings')} aria-label="Settings">
@@ -150,9 +151,14 @@ export default function Home() {
         <Segmented value={tab} onChange={setTab} label="Home sections"
           options={[{ value: 'scenes', label: 'Scenes' }, { value: 'characters', label: 'My characters' }]} />
 
-        {showTip && (
+        {app && (
+          <div className="tip warn">
+            <p><strong>You’re in {app}’s browser.</strong> It forgets your characters when it closes. Open this page in Safari or Chrome to keep them. <button className="link-btn" onClick={() => go('/settings')}>How</button></p>
+          </div>
+        )}
+        {showTip && !app && (
           <div className="tip">
-            <p><strong>Add to Home Screen:</strong> tap Share, then “Add to Home Screen”. It keeps your characters saved on this iPhone.</p>
+            <p><strong>Add to Home Screen</strong> so it opens like an app and keeps your characters saved. <button className="link-btn" onClick={() => go('/settings')}>Show me how</button></p>
             <button className="icon-btn small" aria-label="Dismiss tip" onClick={() => update((s) => (s.dismissedInstallTip = true))}><Icon name="close" size={16} /></button>
           </div>
         )}
