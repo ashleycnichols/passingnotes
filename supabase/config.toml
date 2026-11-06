@@ -1,0 +1,4 @@
+# Used if you ever deploy with the Supabase CLI: keeps JWT verification off for notify-tag,
+# which is called by the database, not by signed-in users.
+[functions.notify-tag]
+verify_jwt = false

@@ -5,5 +5,5 @@ window.PN_CONFIG = {
   supabaseUrl: 'https://lkuzjmwgwnnwenkhfmbm.supabase.co',
   supabaseAnonKey: 'sb_publishable_Q1JZZLILE0QBM_Dr7lp_sw_EalJXYi4',
   // Paste the PUBLIC key of your web push key pair here (the private one goes only into Supabase secrets).
-  vapidPublicKey: '',
+  vapidPublicKey: 'BAk6SuZrNqGn_SfHH7VZSQz_ImHv-DpyzHV-YV-uGh22TnuIjiyRVTsaTndbQpNbJj9EdiSMHzZ1FFasIl8RQFU',
 };
