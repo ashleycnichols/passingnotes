@@ -19,6 +19,7 @@ function blank() {
     homeGrouped: false,
     dismissedInstallTip: false,
     lastBackupAt: null,
+    seenIntro: false,
     openChapters: {}, // slug -> { chapterKey: true/false }
     myReads: [], // [{ view, lastOpenedAt }] scenes followed with a read-only link
   };
@@ -34,11 +35,8 @@ function load() {
   return null;
 }
 
-let state = load();
-if (!state) {
-  state = blank();
-  save();
-}
+let state = load() || blank();
+save(); // persist right away so the device ID never changes between visits
 
 function save() {
   try {

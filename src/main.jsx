@@ -4,12 +4,12 @@ import { useRoute } from './router.js';
 import { isConfigured } from './api.js';
 import { Toasts } from './ui.jsx';
 import { registerServiceWorker, syncPush } from './push.js';
-import { getState, subscribeStore } from './store.js';
+import { getState, subscribeStore, useStore, update } from './store.js';
 import Home from './pages/Home.jsx';
 import NewScene from './pages/NewScene.jsx';
 import Scene from './pages/Scene.jsx';
 import { PrintView } from './components/Export.jsx';
-import { Claim, Restore, Settings, HowItWorks } from './pages/Device.jsx';
+import { Claim, Restore, Settings, HowItWorks, WelcomeIntro } from './pages/Device.jsx';
 
 class Boundary extends Component {
   constructor(p) {
@@ -44,6 +44,7 @@ function NotSetUp() {
 
 function App() {
   const { parts } = useRoute();
+  const seenIntro = useStore((s) => s.seenIntro);
   if (!isConfigured()) return <NotSetUp />;
   const [a, rawB, c] = parts;
   const [b, query = ''] = (rawB || '').split('?');
@@ -62,6 +63,9 @@ function App() {
   return (
     <Boundary key={`${a}/${b}/${c || ''}`}>
       {page}
+      {!seenIntro && !['claim', 'restore', 'how'].includes(a) && !(c && c.startsWith('print')) && (
+        <WelcomeIntro onDone={() => update((s) => (s.seenIntro = true))} />
+      )}
       <Toasts />
     </Boundary>
   );

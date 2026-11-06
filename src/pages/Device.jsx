@@ -156,22 +156,59 @@ export function Settings() {
 
 export function HowItWorks() {
   return (
-    <Shell title="How it works" back="/settings">
+    <Shell title="How it works" back="/">
       <div className="prose">
         <h2>No accounts</h2>
-        <p>There are no logins. This device remembers which characters are yours and which scenes you’ve joined.</p>
-        <h2>Link-only scenes</h2>
-        <p>Scenes are never listed anywhere. The invite link is the only way in, and each scene holds up to 10 players.</p>
-        <h2>Trust-based editing</h2>
-        <p>You can edit or delete your own posts. Tag someone’s character with <strong>@Name</strong> and their player can edit that post too, so they can adjust their character’s lines. Tagged names show in the character’s colour.</p>
-        <h2>Narrator and OOC</h2>
-        <p>Anyone can post as Narrator to set the scene. The OOC tab is for chat as yourself, and it stays out of the story export.</p>
+        <p>There are no logins. This device remembers which characters are yours and which scenes you’ve joined. Add the app to your Home Screen and keep a backup link (in Settings) so you never lose them.</p>
+        <h2>Scenes are invite-only</h2>
+        <p>Scenes are never listed or searchable. The invite link is the only way in, and each scene holds up to 10 players. A separate read-only link lets friends read along without joining.</p>
+        <h2>Built on trust</h2>
+        <p>This is a friendly space for people who know each other. Anyone with a scene’s link can join it, so share links only with people you’d invite to the table, and don’t write anything you’d be upset to see passed around.</p>
+        <h2>Writing together</h2>
+        <p>Pick who you’re writing as from the avatar next to the text box: one of your characters, or the <strong>Narrator</strong> to set the scene. The <strong>OOC</strong> tab is for chatting as yourself, and it stays out of the story export.</p>
+        <h2>Tags</h2>
+        <p>Type <strong>@</strong> to tag a character. Their name shows in their colour, their player gets a note in OOC chat, and they can edit that post too, so they can adjust their own character’s lines.</p>
+        <h2>Chapters</h2>
+        <p>Start a new chapter from the scene menu when the story moves on, or tap any post and choose “Chapter starts here”. Earlier chapters fold away and open again with a tap.</p>
         <h2>Formatting</h2>
         <p>Wrap text in <code>*single stars*</code> for <em>italics</em> and <code>**double stars**</code> for <strong>bold</strong>, or use the buttons above the keyboard.</p>
         <h2>Another device</h2>
-        <p>Open a character and choose “Use on another device” to send its link to yourself. To move everything at once, use the backup link in Settings.</p>
+        <p>Open a character and choose “Use on another device” to send it to yourself. To move everything at once, use the backup link in Settings. Lost a character on a new phone? Open the scene and tap “This is mine” next to it.</p>
       </div>
     </Shell>
+  );
+}
+
+// Shown once per device, on whatever page someone first lands on.
+export function WelcomeIntro({ onDone }) {
+  const appName = window.PN_CONFIG?.appName || 'Passing Notes';
+  const points = [
+    { icon: 'feather', title: 'Write a story together', text: 'Start a scene, invite friends with a link, and take turns writing as your characters or the Narrator.' },
+    { icon: 'users', title: 'No accounts', text: 'This device remembers your characters and scenes. Add the app to your Home Screen so nothing gets lost.' },
+    { icon: 'link', title: 'Invite-only', text: 'Scenes are never listed or searchable. Only people with the link can join or read along.' },
+    { icon: 'chat', title: 'Built on trust', text: 'Anyone with a scene’s link can join, so share it only with people you’d invite to the table.' },
+  ];
+  return (
+    <div className="sheet-backdrop intro-backdrop">
+      <div className="sheet intro" role="dialog" aria-modal="true" aria-label={`Welcome to ${appName}`}>
+        <div className="intro-head">
+          <img src="icons/icon-192.png" alt="" width="64" height="64" />
+          <h2>Welcome to {appName}</h2>
+        </div>
+        <ul className="intro-points">
+          {points.map((p) => (
+            <li key={p.title}>
+              <span className="intro-icon"><Icon name={p.icon} size={20} /></span>
+              <div><strong>{p.title}</strong><p>{p.text}</p></div>
+            </li>
+          ))}
+        </ul>
+        <div className="intro-actions">
+          <button className="btn ghost" onClick={() => { onDone(); go('/how'); }}>How it works</button>
+          <button className="btn primary" onClick={onDone} autoFocus>Got it</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

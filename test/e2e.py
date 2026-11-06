@@ -12,10 +12,12 @@ errors = []
 def shot(page, name):
     page.screenshot(path=f'{OUT}/{name}.png', full_page=False)
 
-def phone(browser, dark=False):
+def phone(browser, dark=False, show_intro=False):
     ctx = browser.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True,
                               color_scheme='dark' if dark else 'light', accept_downloads=True,
                               permissions=['clipboard-read', 'clipboard-write', 'notifications'])
+    if not show_intro:
+        ctx.add_init_script("try{const k='passingnotes:v1';const s=JSON.parse(localStorage.getItem(k)||'{}');if(!s.seenIntro){s.seenIntro=true;localStorage.setItem(k,JSON.stringify(s))}}catch(e){}")
     p = ctx.new_page()
     p.on('console', lambda m: m.type == 'error' and errors.append(f'[console] {m.text}'))
     p.on('pageerror', lambda e: errors.append(f'[pageerror] {e}'))
@@ -352,6 +354,16 @@ with sync_playwright() as pw:
     a.get_by_role('button', name='Delete this character').click()
     a.get_by_role('button', name='Delete character').click()
     expect(a.get_by_text('No characters on this device')).to_be_visible()
+
+    # ---- first-visit welcome shows once
+    ictx, iv = phone(browser, show_intro=True)
+    iv.goto(BASE + '/')
+    expect(iv.get_by_role('dialog', name='Welcome to Passing Notes')).to_be_visible()
+    shot(iv, '26-welcome')
+    iv.get_by_role('button', name='Got it').click()
+    iv.reload()
+    iv.wait_for_timeout(400)
+    assert iv.get_by_role('dialog', name='Welcome to Passing Notes').count() == 0
 
     browser.close()
 
