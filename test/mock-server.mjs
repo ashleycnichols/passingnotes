@@ -120,6 +120,7 @@ const api = {
   },
   getAllPosts: (sceneId, channels) => db.posts.filter((p) => p.scene_id === sceneId && channels.includes(p.channel)).sort((a, b) => a.created_at.localeCompare(b.created_at)),
   getMentions: (sceneIds, ids) => db.posts.filter((p) => sceneIds.includes(p.scene_id) && p.channel === 'ooc' && p.ref_post_id && (p.tagged_character_ids || []).some((t) => ids.includes(t))),
+  getLatestChapter: (sceneId) => db.posts.filter((p) => p.scene_id === sceneId && p.kind === 'chapter').sort((a, b) => b.created_at.localeCompare(a.created_at))[0] || null,
   getLatestPost: (sceneId) => db.posts.filter((p) => p.scene_id === sceneId && p.channel === 'story').sort((a, b) => b.created_at.localeCompare(a.created_at))[0] || null,
   createPost(p) {
     const row = { id: randomUUID(), created_at: now(), updated_at: now(), tagged_character_ids: [], ...p };

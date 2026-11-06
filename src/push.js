@@ -6,6 +6,7 @@ import { getState } from './store.js';
 import { isIOS, isStandalone } from './util.js';
 
 const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const enabled = () => window.PN_CONFIG?.notifications === true && !!window.PN_CONFIG?.vapidPublicKey;
 
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -29,6 +30,7 @@ async function currentSubscription() {
 
 // 'needs-install' | 'unsupported' | 'denied' | 'off' | 'on'
 export async function pushStatus() {
+  if (!enabled()) return 'unsupported';
   if (!supported()) return isIOS() && !isStandalone() ? 'needs-install' : 'unsupported';
   if (!window.PN_CONFIG?.vapidPublicKey) return 'unsupported';
   if (Notification.permission === 'denied') return 'denied';
@@ -37,6 +39,7 @@ export async function pushStatus() {
 }
 
 export async function syncPush(sub) {
+  if (!enabled()) return;
   const s = sub || (await currentSubscription());
   if (!s) return;
   const j = s.toJSON();

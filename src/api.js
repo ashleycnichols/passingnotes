@@ -171,6 +171,12 @@ async function supabaseApi(cfg) {
           .overlaps('tagged_character_ids', characterIds).order('created_at', { ascending: false }).limit(200),
       );
     },
+    async getLatestChapter(sceneId) {
+      const rows = check(
+        await sb.from('posts').select('id,body,created_at').eq('scene_id', sceneId).eq('kind', 'chapter').order('created_at', { ascending: false }).limit(1),
+      );
+      return rows[0] || null;
+    },
     async getLatestPost(sceneId) {
       const rows = check(
         await sb.from('posts').select('*').eq('scene_id', sceneId).eq('channel', 'story').order('created_at', { ascending: false }).limit(1),
@@ -231,7 +237,7 @@ function mockApi(base) {
   };
   const names = [
     'getSceneBySlug', 'getScenesBySlugs', 'getScenesByIds', 'createScene', 'updateScene', 'joinScene', 'getParticipants', 'setPlayerName',
-    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'getMentions', 'deleteScene', 'deleteCharacter', 'savePushSubscription', 'removePushSubscription', 'addToScene', 'removeFromScene',
+    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'getMentions', 'getLatestChapter', 'deleteScene', 'deleteCharacter', 'savePushSubscription', 'removePushSubscription', 'addToScene', 'removeFromScene',
     'getSceneIdsForCharacters', 'getPosts', 'getAllPosts', 'getLatestPost', 'createPost', 'updatePost', 'deletePost',
   ];
   const api = {};

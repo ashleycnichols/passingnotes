@@ -42,6 +42,8 @@ export function themeStyle(key, fontKey, size = 'm') {
     '--border': t.border,
     '--accent': t.accent,
     '--narrator': t.narrator,
+    '--primary': t.text,
+    '--on-primary': t.bg,
     '--story-font': fontOf(fontKey).stack,
     '--story-size': `${TEXT_SIZES[size] || 17}px`,
     colorScheme: t.dark ? 'dark' : 'light',

@@ -36,7 +36,7 @@ with sync_playwright() as pw:
 
     # ---- A: home, create a full scene
     a.goto(BASE + '/')
-    expect(a.get_by_text('No scenes yet')).to_be_visible()
+    expect(a.get_by_role('heading', name='Write a story together')).to_be_visible()
     shot(a, '01-home-empty')
     a.get_by_role('button', name='Start a scene').click()
     a.get_by_role('tab', name='Full setup').click()
@@ -200,7 +200,7 @@ with sync_playwright() as pw:
 
     # ---- home with cards, universe chips
     a.goto(BASE + '/')
-    expect(a.locator('.scene-card', has_text='The Lantern Room')).to_be_visible()
+    expect(a.locator('.continue-card', has_text='The Lantern Room')).to_be_visible()
     shot(a, '14-home')
     a.get_by_role('tab', name='My characters').click()
     expect(a.get_by_text('Sterling Ashbourne')).to_be_visible()
@@ -316,19 +316,18 @@ with sync_playwright() as pw:
     a.get_by_placeholder('DELETE').fill('delete')
     a.screenshot(path=f'{OUT}/23-delete.png')
     del_btn.click()
-    expect(a.get_by_text('No scenes yet')).to_be_visible()
+    expect(a.get_by_role('heading', name='Write a story together')).to_be_visible()
     expect(b.get_by_text('This scene was deleted by its creator.')).to_be_visible(timeout=5000)
 
-    # ---- notifications toggle shows in Settings
+    # ---- notifications are switched off in config, so no opt-in anywhere
     a.goto(BASE + '/#/settings')
-    expect(a.get_by_role('heading', name='Tag notifications')).to_be_visible()
-    # headless Chromium always reports notifications as blocked, so check that state's guidance
-    expect(a.locator('#notifications')).to_contain_text('Notifications are blocked for this site')
+    expect(a.get_by_role('heading', name='Text size')).to_be_visible()
+    assert a.locator('#notifications').count() == 0
 
     # ---- delete a character
     a.goto(BASE + '/')
-    a.get_by_role('tab', name='My characters').click()
-    a.get_by_role('button', name='Edit Sterling Ashbourne').click()
+    a.get_by_role('button', name='My characters').click()   # desktop sidebar
+    a.locator('.char-card', has_text='Sterling Ashbourne').get_by_role('button', name='Edit').click()
     a.get_by_role('button', name='Delete this character').click()
     a.get_by_role('button', name='Delete character').click()
     expect(a.get_by_text('No characters on this device')).to_be_visible()
