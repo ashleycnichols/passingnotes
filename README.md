@@ -35,5 +35,5 @@ Free Supabase projects pause after 7 days with no activity. `.github/workflows/k
 
 - `sw.js` shows notifications; `src/push.js` handles opt-in. iPhone needs the Home Screen app.
 - The database trigger in the notifications migration calls the `notify-tag` Edge Function (`supabase/functions/notify-tag/index.ts`) for every new tag ping.
-- Generate a VAPID key pair (for example at https://vapidkeys.com or with `npx web-push generate-vapid-keys`). Put the public key in `config.js` as `vapidPublicKey`. Add both keys as Edge Function secrets `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Never commit the private key.
+- Generate a VAPID key pair with `tools/vapid.html` (runs in your browser, sends nothing). Put the public key in `config.js` as `vapidPublicKey`. Add both keys as Edge Function secrets `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Never commit the private key.
 - Turn off JWT verification for `notify-tag`. Check it's working under Supabase > Edge Functions > notify-tag > Logs.
