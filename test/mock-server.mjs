@@ -65,6 +65,14 @@ const api = {
     if (!c) throw new Error('This device does not hold the key for that character.');
     Object.assign(c, f, { updated_at: now() });
   },
+  listUniverses() {
+    const m = new Map();
+    [...db.scenes, ...db.characters].forEach((x) => {
+      const n = (x.universe || '').trim();
+      if (n && !m.has(n.toLowerCase())) m.set(n.toLowerCase(), n);
+    });
+    return [...m.values()];
+  },
   reclaimCharacter(id, sceneId) {
     if (!db.links.some((l) => l.character_id === id && l.scene_id === sceneId)) return null;
     return db.characters.find((c) => c.id === id)?.owner_key || null;

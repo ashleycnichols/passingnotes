@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { initials } from './util.js';
 import { textOn } from './look.js';
+import { getApi } from './api.js';
 
 const P = {
   back: 'M15 18l-6-6 6-6',
@@ -141,21 +142,80 @@ export function Segmented({ value, options, onChange, label }) {
   );
 }
 
-export function UniverseInput({ value, onChange, suggestions, id }) {
-  const [focus, setFocus] = useState(false);
-  const q = (value || '').trim().toLowerCase();
-  const list = suggestions.filter((s) => s.toLowerCase() !== q && (!q || s.toLowerCase().includes(q))).slice(0, 6);
+// Universe picker: a dropdown of every universe already in use (so spellings stay consistent), plus "Add new".
+let universeCache = null;
+export function loadUniverses(force = false) {
+  if (!universeCache || force) {
+    universeCache = getApi()
+      .then((api) => api.listUniverses())
+      .catch(() => []);
+  }
+  return universeCache;
+}
+
+function mergeUniverses(...lists) {
+  const m = new Map();
+  lists.flat().forEach((u) => {
+    const n = (u || '').trim();
+    const k = n.toLowerCase();
+    if (n && !m.has(k)) m.set(k, n);
+  });
+  return [...m.values()].sort((a, b) => a.localeCompare(b));
+}
+
+const ADD = '__add__';
+
+export function UniverseInput({ value, onChange, suggestions = [], id }) {
+  const [shared, setShared] = useState([]);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [note, setNote] = useState('');
+  useEffect(() => {
+    let live = true;
+    loadUniverses(true).then((l) => live && setShared(l));
+    return () => { live = false; };
+  }, []);
+  const options = mergeUniverses(shared, suggestions, value ? [value] : []);
+  const current = options.find((o) => o.toLowerCase() === (value || '').trim().toLowerCase()) || '';
+
+  const add = () => {
+    const n = draft.trim().slice(0, 60);
+    if (!n) return;
+    const existing = options.find((o) => o.toLowerCase() === n.toLowerCase());
+    onChange(existing || n);
+    setNote(existing ? `“${existing}” already exists, so it’s selected.` : '');
+    setAdding(false);
+    setDraft('');
+  };
+
+  if (adding) {
+    return (
+      <div className="universe-input">
+        <div className="inline-form">
+          <input id={id} value={draft} maxLength={60} placeholder="New universe name" aria-label="New universe name" autoFocus
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } if (e.key === 'Escape') setAdding(false); }} />
+          <button type="button" className="btn" onClick={add} disabled={!draft.trim()}>Add</button>
+        </div>
+        <button type="button" className="link-btn small" onClick={() => setAdding(false)}>Cancel</button>
+      </div>
+    );
+  }
   return (
     <div className="universe-input">
-      <input id={id} value={value} maxLength={60} placeholder="e.g. Witchard Universe" autoComplete="off"
-        onChange={(e) => onChange(e.target.value)} onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 150)} />
-      {focus && list.length > 0 && (
-        <div className="chips suggest">
-          {list.map((s) => (
-            <button type="button" key={s} className="chip" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange(s)}>{s}</button>
-          ))}
-        </div>
-      )}
+      <div className="select-wrap">
+        <select id={id} value={current} aria-label="Universe"
+          onChange={(e) => {
+            setNote('');
+            if (e.target.value === ADD) { setAdding(true); return; }
+            onChange(e.target.value);
+          }}>
+          <option value="">No universe</option>
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+          <option value={ADD}>+ Add new…</option>
+        </select>
+      </div>
+      {note && <p className="muted small" style={{ margin: 0 }}>{note}</p>}
     </div>
   );
 }

@@ -374,3 +374,9 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); box-sh
 .tip.warn { background: color-mix(in srgb, #f08c00 14%, var(--surface)); }
 .tip .link-btn { padding: 0; }
 .inapp-note { margin: 0 0 8px !important; color: var(--text) !important; }
+
+/* universe dropdown */
+.select-wrap { position: relative; }
+.select-wrap::after { content: ''; position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+.select-wrap select { width: 100%; appearance: none; -webkit-appearance: none; padding: 12px 40px 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); font-size: 16px; }
+.select-wrap select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }

@@ -96,6 +96,10 @@ async function supabaseApi(cfg) {
       );
       if (!ok) throw new Error('This device does not hold the key for that character.');
     },
+    async listUniverses() {
+      const rows = check(await sb.rpc('list_universes'));
+      return (rows || []).map((r) => r.name).filter(Boolean);
+    },
     async reclaimCharacter(id, sceneId) {
       return check(await sb.rpc('reclaim_character', { p_character_id: id, p_scene_id: sceneId }));
     },
@@ -190,7 +194,7 @@ function mockApi(base) {
   };
   const names = [
     'getSceneBySlug', 'getScenesBySlugs', 'getScenesByIds', 'createScene', 'updateScene', 'joinScene', 'getParticipants', 'setPlayerName',
-    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'addToScene', 'removeFromScene',
+    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'addToScene', 'removeFromScene',
     'getSceneIdsForCharacters', 'getPosts', 'getAllPosts', 'getLatestPost', 'createPost', 'updatePost', 'deletePost',
   ];
   const api = {};

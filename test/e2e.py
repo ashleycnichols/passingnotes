@@ -40,7 +40,10 @@ with sync_playwright() as pw:
     a.get_by_role('button', name='Start a scene').click()
     a.get_by_role('tab', name='Full setup').click()
     a.get_by_label('Scene title').fill('The Lantern Room')
-    a.get_by_placeholder('e.g. Witchard Universe').fill('Witchard Universe')
+    a.get_by_label('Universe').select_option('__add__')
+    a.get_by_placeholder('New universe name').fill('Witchard Universe')
+    a.get_by_role('button', name='Add', exact=True).click()
+    expect(a.get_by_label('Universe')).to_have_value('Witchard Universe')
     a.get_by_placeholder('Set the scene').fill('A rain-soaked evening at the academy. The lanterns in the old reading room have started flickering in a pattern.')
     shot(a, '02-new-scene-full')
     a.get_by_role('button', name='Create and invite').click()
@@ -218,6 +221,18 @@ with sync_playwright() as pw:
     b.get_by_role('tab', name='OOC chat').click()
     expect(b.locator('.ooc-post', has_text='was reclaimed')).to_be_visible(timeout=5000)
     shot(b, '18-reclaim-note')
+
+    # ---- shared universe list on another device
+    b.goto(BASE + '/#/new')
+    b.get_by_role('tab', name='Full setup').click()
+    opts = b.get_by_label('Universe').locator('option').all_inner_texts()
+    assert 'Witchard Universe' in opts, opts
+    b.get_by_label('Universe').select_option('__add__')
+    b.get_by_placeholder('New universe name').fill('witchard universe')
+    b.get_by_role('button', name='Add', exact=True).click()
+    expect(b.get_by_label('Universe')).to_have_value('Witchard Universe')
+    expect(b.get_by_text('already exists')).to_be_visible()
+    shot(b, '19-universe-dropdown')
 
     # ---- the 10-player limit
     for i in range(6):  # A, B, the claimed device and the reclaim device already make 4
