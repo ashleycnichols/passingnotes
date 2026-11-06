@@ -96,6 +96,9 @@ async function supabaseApi(cfg) {
       );
       if (!ok) throw new Error('This device does not hold the key for that character.');
     },
+    async deleteScene(sceneId, deviceId) {
+      return !!check(await sb.rpc('delete_scene', { p_scene_id: sceneId, p_device_id: deviceId }));
+    },
     async listUniverses() {
       const rows = check(await sb.rpc('list_universes'));
       return (rows || []).map((r) => r.name).filter(Boolean);
@@ -175,6 +178,7 @@ async function supabaseApi(cfg) {
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'scene_characters' }, (p) => h.onRosterDelete?.(p.old?.id))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'scene_participants', filter: f }, () => h.onParticipants?.())
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'scenes', filter: `id=eq.${sceneId}` }, (p) => h.onScene?.(p.new))
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'scenes' }, (p) => p.old?.id === sceneId && h.onSceneDeleted?.())
         .on('broadcast', { event: 'character' }, () => h.onRoster?.())
         .subscribe((status) => h.onStatus?.(status));
       return {
@@ -202,7 +206,7 @@ function mockApi(base) {
   };
   const names = [
     'getSceneBySlug', 'getScenesBySlugs', 'getScenesByIds', 'createScene', 'updateScene', 'joinScene', 'getParticipants', 'setPlayerName',
-    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'getMentions', 'addToScene', 'removeFromScene',
+    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'getMentions', 'deleteScene', 'addToScene', 'removeFromScene',
     'getSceneIdsForCharacters', 'getPosts', 'getAllPosts', 'getLatestPost', 'createPost', 'updatePost', 'deletePost',
   ];
   const api = {};
@@ -225,6 +229,7 @@ function mockApi(base) {
       if (ev.type === 'roster') h.onRoster?.();
       if (ev.type === 'participants') h.onParticipants?.();
       if (ev.type === 'scene') h.onScene?.(ev.row);
+      if (ev.type === 'sceneDeleted') h.onSceneDeleted?.();
     };
     return {
       broadcastCharacter() {

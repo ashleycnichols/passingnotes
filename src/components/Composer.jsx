@@ -78,7 +78,7 @@ export function TextTools({ taRef, value, setValue, roster, colorFor, showFormat
   );
 }
 
-export default function Composer({ slug, channel, identity, identityChar, onPickIdentity, roster, colorFor, onSend, disabled, placeholder }) {
+export default function Composer({ slug, channel, identity, identityChar, onPickIdentity, roster, colorFor, onSend, disabled, placeholder, docked = false, large = false }) {
   const [value, setValueRaw] = useState(() => getDraft(slug, channel));
   const [focused, setFocused] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -94,10 +94,11 @@ export default function Composer({ slug, channel, identity, identityChar, onPick
     setDraft(slug, channel, v);
   };
 
-  useLayoutEffect(() => autoGrow(taRef.current), [value]);
+  useLayoutEffect(() => autoGrow(taRef.current, large ? 0.45 : 0.4), [value, large]);
 
   // Keep the composer above the on-screen keyboard and tell the page how tall we are.
   useEffect(() => {
+    if (docked) return undefined;
     const el = wrapRef.current;
     const vv = window.visualViewport;
     const place = () => {
@@ -116,7 +117,7 @@ export default function Composer({ slug, channel, identity, identityChar, onPick
       vv?.removeEventListener('scroll', place);
       document.documentElement.style.setProperty('--composer-h', '0px');
     };
-  }, []);
+  }, [docked]);
 
   const send = async () => {
     const text = value.trim();
@@ -149,9 +150,18 @@ export default function Composer({ slug, channel, identity, identityChar, onPick
   const label = ooc ? placeholder : identity === 'narrator' ? 'Write as Narrator…' : identityChar ? `Write as ${identityChar.name}…` : 'Choose who you’re writing as';
 
   return (
-    <div className={`composer${ooc ? ' ooc' : ''}`} ref={wrapRef}>
-      <TextTools taRef={taRef} value={value} setValue={setValue} roster={roster} colorFor={colorFor} showFormat={focused && !ooc}>
-        <span className="muted small hint-desktop">Ctrl/⌘ + Enter to send</span>
+    <div className={`composer${ooc ? ' ooc' : ''}${docked ? ' docked' : ''}${large ? ' large' : ''}`} ref={wrapRef}>
+      <TextTools taRef={taRef} value={value} setValue={setValue} roster={roster} colorFor={colorFor} showFormat={!ooc && (focused || large)}>
+        {large && (
+          <button type="button" className="as-name" onClick={onPickIdentity} aria-label="Change who you are posting as">
+            <span className="muted">Posting as</span>
+            <strong style={identityChar ? { color: colorFor(identityChar.color) } : undefined}>
+              {identity === 'narrator' ? 'Narrator' : identityChar ? identityChar.name : 'Choose…'}
+            </strong>
+            <Icon name="back" size={14} className="chev-down" />
+          </button>
+        )}
+        <span className="muted small hint-desktop">{ooc ? 'Enter to send' : 'Ctrl/⌘ + Enter to post'}</span>
       </TextTools>
       <div className="composer-row">
         {!ooc && (
@@ -171,7 +181,7 @@ export default function Composer({ slug, channel, identity, identityChar, onPick
           onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 150)} />
         <button type="button" className="send-btn" onMouseDown={(e) => e.preventDefault()} onClick={send}
           disabled={!value.trim() || busy || disabled || (!ooc && !identity)} aria-label="Send">
-          <Icon name="send" size={20} />
+          {large ? <span className="send-label">Post</span> : <Icon name="send" size={20} />}
         </button>
       </div>
     </div>

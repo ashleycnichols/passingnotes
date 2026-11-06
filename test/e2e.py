@@ -257,6 +257,38 @@ with sync_playwright() as pw:
     e.goto(f'{BASE}/#/s/{slug}')
     expect(e.get_by_text('This scene is full (10 players)')).to_be_visible()
 
+    # ---- desktop layout
+    a.set_viewport_size({'width': 1440, 'height': 900})
+    a.goto(f'{BASE}/#/s/{slug}')
+    expect(a.locator('.desk-grid')).to_be_visible()
+    expect(a.locator('.ooc-panel')).to_contain_text('brb, kettle')
+    big = a.locator('.desk-center .composer textarea')
+    big.fill('A desktop line, written with room to breathe.')
+    big.press('Control+Enter')
+    expect(a.locator('.desk-center .char-post', has_text='room to breathe')).to_be_visible()
+    side = a.locator('.ooc-panel textarea')
+    side.fill('side chat works')
+    side.press('Enter')
+    expect(a.locator('.ooc-panel .ooc-post', has_text='side chat works')).to_be_visible()
+    a.wait_for_timeout(300)
+    a.screenshot(path=f'{OUT}/22-desktop.png')
+
+    # ---- delete scene: only the creator sees the option
+    b.goto(f'{BASE}/#/s/{slug}')
+    expect(b.get_by_role('heading', name='The Lantern Room')).to_be_visible()
+    b.get_by_role('button', name='Scene menu').click()
+    assert b.get_by_role('button', name='Delete scene').count() == 0
+    b.keyboard.press('Escape')
+    a.get_by_role('button', name='Scene menu').click()
+    a.get_by_role('button', name='Delete scene').click()
+    del_btn = a.get_by_role('button', name='Delete scene for everyone')
+    expect(del_btn).to_be_disabled()
+    a.get_by_placeholder('DELETE').fill('delete')
+    a.screenshot(path=f'{OUT}/23-delete.png')
+    del_btn.click()
+    expect(a.get_by_text('No scenes yet')).to_be_visible()
+    expect(b.get_by_text('This scene was deleted by its creator.')).to_be_visible(timeout=5000)
+
     browser.close()
 
 print('\n'.join(errors) if errors else 'no console errors')

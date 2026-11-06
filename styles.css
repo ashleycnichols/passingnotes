@@ -395,3 +395,46 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); box-sh
 @keyframes flash { 0%, 40% { background: color-mix(in srgb, var(--accent) 18%, transparent); } 100% { background: transparent; } }
 .card-labels { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .tagged-badge { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 2px 8px; border-radius: 999px; }
+
+/* ---- desktop scene layout (1100px and wider) ---- */
+.composer .as-name { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font-family: var(--ui-font); font-size: 0.9rem; margin-right: 4px; }
+.composer .as-name .chev-down { transform: rotate(-90deg); color: var(--muted); }
+.send-label { font-weight: 700; font-size: 0.95rem; padding: 0 4px; }
+.stack.tight { gap: 8px; margin: 12px 0 0; }
+
+.scene-page.desktop .scene-header-row { max-width: 1480px; height: 56px; padding: 0 16px; }
+.scene-page.desktop .scene-titles h1 { font-size: 1.15rem; }
+.desk-grid { display: grid; grid-template-columns: 270px minmax(0, 1fr) 360px; gap: 28px; max-width: 1480px; margin: 0 auto; padding: 0 24px; align-items: start; }
+.desk-left, .desk-right { position: sticky; top: 57px; height: calc(100dvh - 57px); padding: 20px 0; }
+.desk-left { overflow-y: auto; display: grid; align-content: start; gap: 16px; scrollbar-width: thin; }
+.desk-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.desk-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; font-weight: 700; }
+.desk-h .small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.desk-card .desc-text { padding: 0; font-size: calc(var(--story-size) - 1px); }
+.desk-roster { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.desk-roster button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 6px; border: 0; border-radius: 10px; background: none; text-align: left; }
+.desk-roster button:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.desk-roster-text { display: grid; line-height: 1.25; }
+
+.desk-center { min-height: calc(100dvh - 57px); display: flex; flex-direction: column; padding-top: 16px; min-width: 0; }
+.desk-center .feed { flex: 1; }
+.desk-center .feed-empty { flex: 1; }
+.desk-composer { position: sticky; bottom: 0; margin-top: auto; padding: 12px 0 16px; background: linear-gradient(to bottom, transparent, var(--bg) 18px); z-index: 10; }
+.composer.docked { position: static; transform: none !important; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); padding: 10px 12px 12px; backdrop-filter: none; box-shadow: var(--shadow); }
+.composer.docked > * { max-width: none; }
+.composer.large textarea { min-height: 132px; border-radius: 12px; padding: 12px 14px; background: var(--bg); }
+.composer.large .send-btn { width: auto; height: 44px; padding: 0 16px; border-radius: 12px; align-self: flex-end; }
+.composer.large .as-chip { display: none; }
+.composer.large .format-bar { padding-bottom: 8px; }
+.desk-composer .join-bar { position: static; border: 1px solid var(--border); border-radius: 16px; }
+.scene-page.desktop .new-pill { position: sticky; bottom: 240px; left: auto; transform: none; align-self: center; margin-top: -40px; }
+
+.desk-right { display: flex; }
+.ooc-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.ooc-panel-h { padding: 14px 16px 10px; margin: 0; border-bottom: 1px solid var(--border); }
+.ooc-scroll { flex: 1; overflow-y: auto; padding: 4px 12px 12px; scrollbar-width: thin; }
+.ooc-scroll .ooc-post { background: var(--bg); max-width: 100%; }
+.ooc-scroll .feed-empty { padding: 32px 8px; font-size: 0.95rem; }
+.ooc-foot { border-top: 1px solid var(--border); padding: 10px; }
+.ooc-foot .composer.docked { border: 0; box-shadow: none; padding: 0; background: none; }
+.ooc-foot .composer.docked textarea { font-size: 15px; }

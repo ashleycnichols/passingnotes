@@ -219,3 +219,14 @@ export function UniverseInput({ value, onChange, suggestions = [], id }) {
     </div>
   );
 }
+
+export function useMedia(query) {
+  return useSyncExternalStore(
+    (l) => {
+      const m = window.matchMedia(query);
+      m.addEventListener('change', l);
+      return () => m.removeEventListener('change', l);
+    },
+    () => window.matchMedia(query).matches,
+  );
+}

@@ -117,6 +117,12 @@ export function rememberScene(slug) {
   });
 }
 
+export function forgetScene(slug) {
+  update((s) => {
+    s.myScenes = s.myScenes.filter((x) => x.slug !== slug);
+  });
+}
+
 export function setSceneHidden(slug, hidden) {
   update((s) => {
     s.myScenes = s.myScenes.map((x) => (x.slug === slug ? { ...x, hidden } : x));

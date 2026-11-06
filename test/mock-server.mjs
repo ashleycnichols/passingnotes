@@ -65,6 +65,16 @@ const api = {
     if (!c) throw new Error('This device does not hold the key for that character.');
     Object.assign(c, f, { updated_at: now() });
   },
+  deleteScene(sceneId, deviceId) {
+    const s = db.scenes.find((x) => x.id === sceneId && x.created_by_device === deviceId);
+    if (!s) return false;
+    emit(sceneId, { type: 'sceneDeleted' });
+    db.scenes = db.scenes.filter((x) => x.id !== sceneId);
+    db.posts = db.posts.filter((p) => p.scene_id !== sceneId);
+    db.participants = db.participants.filter((p) => p.scene_id !== sceneId);
+    db.links = db.links.filter((l) => l.scene_id !== sceneId);
+    return true;
+  },
   listUniverses() {
     const m = new Map();
     [...db.scenes, ...db.characters].forEach((x) => {

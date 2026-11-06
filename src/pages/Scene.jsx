@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getApi } from '../api.js';
-import { getState, update, useStore, rememberScene, rememberUniverse, addMyCharacter } from '../store.js';
+import { getState, update, useStore, rememberScene, rememberUniverse, addMyCharacter, forgetScene } from '../store.js';
 import { go } from '../router.js';
-import { Avatar, Confirm, Icon, Segmented, Sheet, toast, errMsg, UniverseInput } from '../ui.jsx';
+import { Avatar, Confirm, Icon, Segmented, Sheet, toast, errMsg, UniverseInput, useMedia } from '../ui.jsx';
 import { encodeTags } from '../text.jsx';
 import { themeOf, themeStyle, readableColor, TEXT_SIZES } from '../look.js';
 import { universeKey, inAppBrowser } from '../util.js';
@@ -55,6 +55,12 @@ export default function Scene({ slug }) {
   const [reclaiming, setReclaiming] = useState(null);
   const [descOpen, setDescOpen] = useState(!seenDesc);
   const [online, setOnline] = useState(navigator.onLine);
+  const desktop = useMedia('(min-width: 1100px)');
+  const desktopRef = useRef(desktop);
+  desktopRef.current = desktop;
+  useEffect(() => {
+    if (desktop) setView('story');
+  }, [desktop]);
 
   const sub = useRef(null);
   const viewRef = useRef(view);
@@ -132,7 +138,9 @@ export default function Scene({ slug }) {
             const mine = row.author_device_id === getState().deviceId;
             const owned = new Set(getState().myCharacters.map((c) => c.id));
             const pingsMe = ch === 'ooc' && row.ref_post_id && (row.tagged_character_ids || []).some((id) => owned.has(id));
-            if (pingsMe && !mine && ch === viewRef.current) toast('You were tagged. Tap “Go to post” to see it.');
+            const visible = ch === viewRef.current || (desktopRef.current && ch === 'ooc');
+            if (pingsMe && !mine && visible) toast('You were tagged. Tap “Go to post” to see it.');
+            if (desktopRef.current && ch === 'ooc') return;
             if (ch !== viewRef.current) {
               if (!mine) setUnread((u) => ({ ...u, [ch]: pingsMe || u[ch] === 'mention' ? 'mention' : true }));
             } else if (nearBottom() || mine) {
@@ -146,6 +154,11 @@ export default function Scene({ slug }) {
           onRosterDelete: () => loadRoster(s.id),
           onParticipants: () => loadParticipants(s.id),
           onScene: (row) => setScene((cur) => ({ ...cur, ...row })),
+          onSceneDeleted: () => {
+            forgetScene(slug);
+            toast('This scene was deleted by its creator.');
+            go('/', { replace: true });
+          },
           onStatus: (st) => {
             if (st === 'SUBSCRIBED') loadLatest(s.id);
           },
@@ -235,13 +248,13 @@ export default function Scene({ slug }) {
     }
   };
 
-  const send = async (text) => {
+  const send = async (text, ch = view) => {
     const api = await getApi();
     const { body, tagged } = encodeTags(text, roster);
-    const ooc = view === 'ooc';
+    const ooc = ch === 'ooc';
     const row = {
       scene_id: scene.id,
-      channel: view,
+      channel: ch,
       kind: ooc ? 'player' : identity === 'narrator' ? 'narrator' : 'character',
       character_id: ooc || identity === 'narrator' ? null : identity,
       author_device_id: deviceId,
@@ -250,8 +263,8 @@ export default function Scene({ slug }) {
     };
     try {
       const saved = await api.createPost(row);
-      setPosts((prev) => ({ ...prev, [view]: merge(prev[view], [saved]) }));
-      requestAnimationFrame(() => scrollToBottom(true));
+      setPosts((prev) => ({ ...prev, [ch]: merge(prev[ch], [saved]) }));
+      if (!ooc) requestAnimationFrame(() => scrollToBottom(true));
       if (!ooc) await ping(saved, tagged);
     } catch (e) {
       toast(errMsg(e), 'error');
@@ -331,6 +344,19 @@ export default function Scene({ slug }) {
     if (p.channel === 'story') {
       const before = new Set(p.tagged_character_ids || []);
       await ping(saved, tagged.filter((id) => !before.has(id)));
+    }
+  };
+
+  const deleteScene = async () => {
+    try {
+      const api = await getApi();
+      const ok = await api.deleteScene(scene.id, deviceId);
+      if (!ok) return toast('Only the device that created this scene can delete it.', 'error');
+      forgetScene(slug);
+      toast(`Deleted “${scene.title}”`);
+      go('/', { replace: true });
+    } catch (e) {
+      toast(errMsg(e), 'error');
     }
   };
 
@@ -416,9 +442,21 @@ export default function Scene({ slug }) {
   const list = posts[view];
   const identityChar = identity && identity !== 'narrator' ? charsById[identity] : null;
   const savedNotHere = myChars.map((c) => c.id).filter((id) => !roster.some((r) => r.id === id));
+  const JOIN_BAR = (
+        <div className="join-bar">
+      {full ? (
+        <p>This scene is full (10 players). You can still read along.</p>
+      ) : (
+        <>
+          {inAppBrowser() && <p className="small inapp-note">You’re in {inAppBrowser()}’s browser, which forgets your characters. For best results, open this link in Safari or Chrome.</p>}
+          <button className="btn primary block" onClick={() => setSheet('join')}>Join this scene</button>
+        </>
+      )}
+    </div>
+  );
 
   return (
-    <div className={`page scene-page${theme.dark ? ' dark' : ''}`} style={themeStyle(scene.theme, scene.font, textSize)}>
+    <div className={`page scene-page${theme.dark ? ' dark' : ''}${desktop ? ' desktop' : ''}`} style={themeStyle(scene.theme, scene.font, textSize)}>
       <header className="scene-header">
         <div className="scene-header-row">
           <button className="icon-btn" onClick={() => go('/')} aria-label="Back to my scenes"><Icon name="back" /></button>
@@ -429,6 +467,7 @@ export default function Scene({ slug }) {
           <button className="icon-btn" onClick={() => setSheet('invite')} aria-label="Invite players"><Icon name="share" /></button>
           <button className="icon-btn" onClick={() => setSheet('menu')} aria-label="Scene menu"><Icon name="more" /></button>
         </div>
+        {!desktop && (<>
         <div className="roster-strip">
           <button className="roster-strip-inner" onClick={() => setSheet('roster')} aria-label="Who's in the scene">
             {roster.length === 0 && <span className="muted small">No characters yet</span>}
@@ -447,10 +486,79 @@ export default function Scene({ slug }) {
           <Segmented value={view} onChange={setView} label="Story or out-of-character chat"
             options={[{ value: 'story', label: 'Story', dot: unread.story }, { value: 'ooc', label: 'OOC chat', dot: unread.ooc }]} />
         </div>
+        </>)}
       </header>
 
       {!online && <div className="offline-bar">You’re offline. New posts will appear when you reconnect.</div>}
 
+      {desktop ? (
+        <div className="desk-grid">
+          <aside className="desk-left">
+            <section className="desk-card">
+              <h3 className="desk-h">The scene</h3>
+              {scene.description ? <div className="desc-text">{scene.description}</div> : (
+                <p className="muted small">No description yet. <button className="link-btn" onClick={() => setSheet('settings')}>Add one</button></p>
+              )}
+            </section>
+            <section className="desk-card">
+              <h3 className="desk-h">Who’s in <span className="muted small">{participants.length} of {MAX_PLAYERS} players</span></h3>
+              {roster.length === 0 && <p className="muted small">No characters yet.</p>}
+              <ul className="desk-roster">
+                {roster.map((c) => (
+                  <li key={c.id}>
+                    <button onClick={() => setSheet('roster')}>
+                      <Avatar c={c} size={30} />
+                      <span className="grow left desk-roster-text">
+                        <strong style={{ color: colorFor(c.color) }}>{c.name}</strong>
+                        <span className="muted small">{myIds.has(c.id) ? 'You' : playersByDevice[c.added_by_device]?.player_name || ''}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="stack tight">
+                {joined && <button className="btn small" onClick={() => setSheet('addChar')}><Icon name="plus" size={16} /> Add a character</button>}
+                <button className="btn small" onClick={() => setSheet('invite')}><Icon name="share" size={16} /> Invite players</button>
+              </div>
+            </section>
+          </aside>
+
+          <main className="desk-center">
+            {more.story && <button className="btn ghost small center-block" onClick={loadEarlier}>Load earlier</button>}
+            <Feed posts={posts.story} channel="story" ctx={ctx} canEdit={canEdit} onEdit={editPost} onDelete={(p) => setConfirmDel(p)}
+              storyById={storyById} myIds={myIds} onJump={jumpTo}
+              participantsByDevice={playersByDevice} rosterByDevice={rosterByDevice}
+              emptyText="The stage is yours. Write the opening line, or post as Narrator to set the scene." />
+            <div className="desk-composer">
+              {joined ? (
+                <Composer docked large slug={slug} channel="story" identity={identity} identityChar={identityChar} roster={roster} colorFor={colorFor}
+                  onPickIdentity={() => setSheet('identity')} onSend={(t) => send(t, 'story')} />
+              ) : JOIN_BAR}
+            </div>
+            {newPill && (
+              <button className="new-pill" onClick={() => { scrollToBottom(true); setNewPill(false); }}>New posts ↓</button>
+            )}
+          </main>
+
+          <aside className="desk-right">
+            <OocPanel posts={posts.ooc} ctx={ctx} canEdit={canEdit} onEdit={editPost} onDelete={(p) => setConfirmDel(p)}
+              storyById={storyById} myIds={myIds} onJump={jumpTo} participantsByDevice={playersByDevice} rosterByDevice={rosterByDevice}>
+              {!joined ? (
+                <p className="muted small center">Join the scene to chat.</p>
+              ) : !playerName ? (
+                <form className="inline-form" onSubmit={(e) => { e.preventDefault(); const n = e.currentTarget.elements.pn.value.trim(); if (n) saveName(n); }}>
+                  <input name="pn" maxLength={40} placeholder="Your name for OOC chat" aria-label="Your name for OOC chat" />
+                  <button className="btn primary">Start</button>
+                </form>
+              ) : (
+                <Composer docked slug={slug} channel="ooc" roster={roster} colorFor={colorFor} onSend={(t) => send(t, 'ooc')}
+                  placeholder={`Chat as ${playerName}…`} />
+              )}
+            </OocPanel>
+          </aside>
+        </div>
+      ) : (
+        <>
       <main className={`scene-main ${view}`}>
         {view === 'story' && scene.description && (
           <section className={`desc-card${descOpen ? ' open' : ''}`}>
@@ -482,19 +590,13 @@ export default function Scene({ slug }) {
         </div>
       ) : joined ? (
         <Composer slug={slug} channel={view} identity={identity} identityChar={identityChar} roster={roster} colorFor={colorFor}
-          onPickIdentity={() => setSheet('identity')} onSend={send}
+          onPickIdentity={() => setSheet('identity')} onSend={(t) => send(t)}
           placeholder={`Chat as ${playerName || 'yourself'}…`} />
       ) : (
-        <div className="join-bar">
-          {full ? (
-            <p>This scene is full (10 players). You can still read along.</p>
-          ) : (
-            <>
-              {inAppBrowser() && <p className="small inapp-note">You’re in {inAppBrowser()}’s browser, which forgets your characters. For best results, open this link in Safari or Chrome.</p>}
-              <button className="btn primary block" onClick={() => setSheet('join')}>Join this scene</button>
-            </>
-          )}
-        </div>
+        JOIN_BAR
+      )}
+
+        </>
       )}
 
       {/* ---- sheets ---- */}
@@ -507,7 +609,10 @@ export default function Scene({ slug }) {
           <button onClick={() => setSheet('settings')}><Icon name="settings" /> Scene settings and look</button>
           <button onClick={() => setSheet('export')}><Icon name="download" /> Export scene</button>
           <button onClick={() => setSheet('text')}><Icon name="book" /> Text size</button>
-          {joined && view === 'ooc' && <button onClick={() => setSheet('name')}><Icon name="edit" /> Change my OOC name</button>}
+          {joined && (view === 'ooc' || desktop) && <button onClick={() => setSheet('name')}><Icon name="edit" /> Change my OOC name</button>}
+          {scene.created_by_device === deviceId && (
+            <button className="danger-text" onClick={() => setSheet('delete')}><Icon name="trash" /> Delete scene</button>
+          )}
         </div>
       </Sheet>
 
@@ -595,6 +700,10 @@ export default function Scene({ slug }) {
         body={`This device will be able to post and edit as ${reclaiming?.name || ''}. Everyone will see a note in OOC chat. Only do this for your own character.`}
         onCancel={() => setReclaiming(null)}
         onConfirm={() => { const c = reclaiming; setReclaiming(null); reclaim(c); }} />
+
+      <Sheet open={sheet === 'delete'} onClose={() => setSheet(null)} title="Delete this scene?">
+        <DeleteSceneForm scene={scene} onExport={() => setSheet('export')} onDelete={deleteScene} />
+      </Sheet>
 
       <ExportSheet open={sheet === 'export'} onClose={() => setSheet(null)} scene={scene} charsById={charsById} playersByDevice={playersByDevice} />
 
@@ -695,6 +804,46 @@ function PlayerNameForm({ initial, onSave }) {
       <p className="muted">OOC chat is you, not your character. What should people call you?</p>
       <label className="field"><span>Your name</span><input value={v} maxLength={40} onChange={(e) => setV(e.target.value)} autoFocus /></label>
       <button className="btn primary block" disabled={!v.trim()}>Save</button>
+    </form>
+  );
+}
+
+function OocPanel({ posts, children, ...feed }) {
+  const ref = useRef(null);
+  const atBottom = useRef(true);
+  const count = posts.length;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const last = posts[posts.length - 1];
+    if (atBottom.current || last?.author_device_id === getState().deviceId) el.scrollTop = el.scrollHeight;
+  }, [count]);
+  return (
+    <div className="ooc-panel">
+      <h3 className="desk-h ooc-panel-h">OOC chat</h3>
+      <div className="ooc-scroll" ref={ref}
+        onScroll={(e) => { const el = e.currentTarget; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }}>
+        <Feed posts={posts} channel="ooc" {...feed} emptyText="Out-of-character chat lives here. Plans, questions, “brb”." />
+      </div>
+      <div className="ooc-foot">{children}</div>
+    </div>
+  );
+}
+
+function DeleteSceneForm({ scene, onExport, onDelete }) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const ok = typed.trim().toLowerCase() === 'delete';
+  return (
+    <form className="form" onSubmit={async (e) => { e.preventDefault(); if (!ok) return; setBusy(true); await onDelete(); setBusy(false); }}>
+      <p>This removes “{scene.title}” for everyone: every story post, all OOC chat, and the invite link. It can’t be undone.</p>
+      <p className="muted small">Characters stay saved on each player’s device and can join other scenes.</p>
+      <button type="button" className="btn block" onClick={onExport}><Icon name="download" size={18} /> Export the story first</button>
+      <label className="field" style={{ marginTop: 16 }}>
+        <span>Type DELETE to confirm</span>
+        <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" autoCapitalize="characters" placeholder="DELETE" />
+      </label>
+      <button className="btn danger block" disabled={!ok || busy}>{busy ? 'Deleting…' : 'Delete scene for everyone'}</button>
     </form>
   );
 }
