@@ -57,7 +57,7 @@ export function buildHtml(scene, posts, charsById, playersByDevice) {
   return html;
 }
 
-export function ExportSheet({ open, onClose, scene, charsById, playersByDevice }) {
+export function ExportSheet({ open, onClose, scene, charsById, playersByDevice, canPrint = true }) {
   const [include, setInclude] = useState('story');
   const [busy, setBusy] = useState(false);
   const fetchPosts = async () => {
@@ -77,8 +77,8 @@ export function ExportSheet({ open, onClose, scene, charsById, playersByDevice }
   };
   return (
     <Sheet open={open} onClose={onClose} title="Export scene">
-      <Segmented value={include} onChange={setInclude} label="What to include"
-        options={[{ value: 'story', label: 'Story only' }, { value: 'all', label: 'Story + OOC' }]} />
+      {canPrint && <Segmented value={include} onChange={setInclude} label="What to include"
+        options={[{ value: 'story', label: 'Story only' }, { value: 'all', label: 'Story + OOC' }]} />}
       <div className="menu-list">
         <button disabled={busy} onClick={() => run(async (posts) => {
           downloadFile(`${fileSafe(scene.title)}-${stamp}.md`, buildExport(scene, posts, charsById, playersByDevice, 'md'), 'text/markdown');
@@ -99,9 +99,9 @@ export function ExportSheet({ open, onClose, scene, charsById, playersByDevice }
           }
           toast('Copied. Paste it into a Google Doc.');
         })}><Icon name="copy" /> Copy all</button>
-        <button onClick={() => { onClose(); go(`/s/${scene.slug}/print${include === 'all' ? '?ooc=1' : ''}`); }}>
+        {canPrint && <button onClick={() => { onClose(); go(`/s/${scene.slug}/print${include === 'all' ? '?ooc=1' : ''}`); }}>
           <Icon name="print" /> Printable story (save as PDF)
-        </button>
+        </button>}
       </div>
     </Sheet>
   );

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getApi } from '../api.js';
-import { getState, update, useStore, rememberScene, rememberUniverse, addMyCharacter, forgetScene } from '../store.js';
+import { getState, update, useStore, rememberScene, rememberUniverse, addMyCharacter, forgetScene, rememberRead, forgetRead } from '../store.js';
 import { go } from '../router.js';
 import { Avatar, Confirm, Icon, Segmented, Sheet, toast, errMsg, UniverseInput, useMedia } from '../ui.jsx';
 import { encodeTags, firstLine } from '../text.jsx';
@@ -31,7 +31,11 @@ function scrollToBottom(smooth = false) {
   window.scrollTo({ top: document.documentElement.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
 }
 
-export default function Scene({ slug, jumpPost }) {
+export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
+  // Readers arrive with a read-only link: they can read along but never join or post.
+  const reader = !!viewToken;
+  const slug = playerSlug || `r-${viewToken}`;
+  const selfPath = reader ? `/r/${viewToken}` : `/s/${slug}`;
   const deviceId = useStore((s) => s.deviceId);
   const myChars = useStore((s) => s.myCharacters);
   const textSize = useStore((s) => s.textSize);
@@ -81,8 +85,8 @@ export default function Scene({ slug, jumpPost }) {
   }, [roster, extraChars]);
   const myIds = useMemo(() => new Set(myChars.map((c) => c.id)), [myChars]);
   const myInScene = roster.filter((c) => myIds.has(c.id));
-  const joined = participants.some((p) => p.device_id === deviceId);
-  const full = !joined && participants.length >= MAX_PLAYERS;
+  const joined = !reader && participants.some((p) => p.device_id === deviceId);
+  const full = !reader && !joined && participants.length >= MAX_PLAYERS;
   const playersByDevice = useMemo(() => Object.fromEntries(participants.map((p) => [p.device_id, p])), [participants]);
   const rosterByDevice = useMemo(() => {
     const m = {};
@@ -122,7 +126,7 @@ export default function Scene({ slug, jumpPost }) {
     (async () => {
       try {
         const api = await getApi();
-        const s = await api.getSceneBySlug(slug);
+        const s = reader ? (await api.getScenesForViewer([viewToken]))[0] || null : await api.getSceneBySlug(slug);
         if (!alive) return;
         if (!s) {
           setScene(null);
@@ -132,7 +136,8 @@ export default function Scene({ slug, jumpPost }) {
         const parts = await api.getParticipants(s.id);
         if (!alive) return;
         setParticipants(parts);
-        if (parts.some((p) => p.device_id === getState().deviceId)) rememberScene(slug);
+        if (reader) rememberRead(viewToken);
+        else if (parts.some((p) => p.device_id === getState().deviceId)) rememberScene(slug);
         await Promise.all([loadRoster(s.id), loadLatest(s.id, true)]);
         sub.current = api.subscribeScene(s.id, {
           onPost: (row) => {
@@ -158,7 +163,8 @@ export default function Scene({ slug, jumpPost }) {
           onParticipants: () => loadParticipants(s.id),
           onScene: (row) => setScene((cur) => ({ ...cur, ...row })),
           onSceneDeleted: () => {
-            forgetScene(slug);
+            if (reader) forgetRead(viewToken);
+            else forgetScene(slug);
             toast('This scene was deleted by its creator.');
             go('/', { replace: true });
           },
@@ -355,7 +361,7 @@ export default function Scene({ slug, jumpPost }) {
   useEffect(() => {
     if (!jumpPost || jumped.current || !posts.story.length) return;
     jumped.current = true;
-    history.replaceState(null, '', `#/s/${slug}`);
+    history.replaceState(null, '', `#${selfPath}`);
     jumpTo(jumpPost);
   }, [jumpPost, posts.story.length]);
 
@@ -481,7 +487,11 @@ export default function Scene({ slug, jumpPost }) {
   const list = posts[view];
   const identityChar = identity && identity !== 'narrator' ? charsById[identity] : null;
   const savedNotHere = myChars.map((c) => c.id).filter((id) => !roster.some((r) => r.id === id));
-  const JOIN_BAR = (
+  const JOIN_BAR = reader ? (
+    <div className="join-bar reader-bar">
+      <p><Icon name="book" size={16} /> You’re reading along. To write in this scene, ask a player for an invite link.</p>
+    </div>
+  ) : (
         <div className="join-bar">
       {full ? (
         <p>This scene is full (10 players). You can still read along.</p>
@@ -503,7 +513,9 @@ export default function Scene({ slug, jumpPost }) {
             <h1>{scene.title}</h1>
             {scene.universe && <span className="universe-label">{scene.universe}</span>}
           </div>
-          <button className="icon-btn" onClick={() => setSheet('invite')} aria-label="Invite players"><Icon name="share" /></button>
+          {reader ? <span className="reader-pill">Reading</span> : (
+            <button className="icon-btn" onClick={() => setSheet('invite')} aria-label="Invite players"><Icon name="share" /></button>
+          )}
           <button className="icon-btn" onClick={() => setSheet('menu')} aria-label="Scene menu"><Icon name="more" /></button>
         </div>
         {!desktop && (<>
@@ -521,17 +533,17 @@ export default function Scene({ slug, jumpPost }) {
             <button className="chip add-char" onClick={() => setSheet('addChar')}><Icon name="plus" size={14} /> Character</button>
           )}
         </div>
-        <div className="view-toggle">
+        {!reader && <div className="view-toggle">
           <Segmented value={view} onChange={setView} label="Story or out-of-character chat"
             options={[{ value: 'story', label: 'Story', dot: unread.story }, { value: 'ooc', label: 'OOC chat', dot: unread.ooc }]} />
-        </div>
+        </div>}
         </>)}
       </header>
 
       {!online && <div className="offline-bar">You’re offline. New posts will appear when you reconnect.</div>}
 
       {desktop ? (
-        <div className="desk-grid">
+        <div className={`desk-grid${reader ? ' reader' : ''}`}>
           <aside className="desk-left">
             <section className="desk-card">
               <h3 className="desk-h">The scene</h3>
@@ -569,7 +581,7 @@ export default function Scene({ slug, jumpPost }) {
               </ul>
               <div className="stack tight">
                 {joined && <button className="btn small" onClick={() => setSheet('addChar')}><Icon name="plus" size={16} /> Add a character</button>}
-                <button className="btn small" onClick={() => setSheet('invite')}><Icon name="share" size={16} /> Invite players</button>
+                {!reader && <button className="btn small" onClick={() => setSheet('invite')}><Icon name="share" size={16} /> Invite players</button>}
               </div>
             </section>
           </aside>
@@ -592,7 +604,7 @@ export default function Scene({ slug, jumpPost }) {
             )}
           </main>
 
-          <aside className="desk-right">
+          {!reader && <aside className="desk-right">
             <OocPanel posts={posts.ooc} ctx={ctx} canEdit={canEdit} onEdit={editPost} onDelete={(p) => setConfirmDel(p)}
               storyById={storyById} myIds={myIds} onJump={jumpTo} participantsByDevice={playersByDevice} rosterByDevice={rosterByDevice}>
               {!joined ? (
@@ -607,7 +619,7 @@ export default function Scene({ slug, jumpPost }) {
                   placeholder={`Chat as ${playerName}…`} />
               )}
             </OocPanel>
-          </aside>
+          </aside>}
         </div>
       ) : (
         <>
@@ -660,12 +672,12 @@ export default function Scene({ slug, jumpPost }) {
           <button onClick={() => setSheet('roster')}><Icon name="users" /> Who’s in the scene</button>
           {joined && <button onClick={() => setSheet('addChar')}><Icon name="plus" /> Add a character</button>}
           {joined && <button onClick={() => { setChapterEdit(null); setChapterBefore(null); setSheet('chapter'); }}><Icon name="book" /> Start a new chapter</button>}
-          <button onClick={() => setSheet('settings')}><Icon name="settings" /> Scene settings and look</button>
+          {!reader && <button onClick={() => setSheet('settings')}><Icon name="settings" /> Scene settings and look</button>}
           <button onClick={() => setSheet('export')}><Icon name="download" /> Export scene</button>
           <button onClick={() => setSheet('text')}><Icon name="book" /> Text size</button>
           {joined && (view === 'ooc' || desktop) && <button onClick={() => setSheet('name')}><Icon name="edit" /> Change my OOC name</button>}
-          <NotifyMenuItem onNeedsSettings={() => { setSheet(null); go('/settings'); }} />
-          {scene.created_by_device === deviceId && (
+          {!reader && <NotifyMenuItem onNeedsSettings={() => { setSheet(null); go('/settings'); }} />}
+          {!reader && scene.created_by_device === deviceId && (
             <button className="danger-text" onClick={() => setSheet('delete')}><Icon name="trash" /> Delete scene</button>
           )}
         </div>
@@ -688,7 +700,7 @@ export default function Scene({ slug, jumpPost }) {
                     <strong style={{ color: colorFor(c.color) }}>{c.name}</strong>
                     <span className="muted small">{mine ? 'You' : playersByDevice[c.added_by_device]?.player_name || ''}</span>
                   </div>
-                  {!mine && (
+                  {!mine && !reader && (
                     <button className="btn ghost small" onClick={() => { setSheet(null); setReclaiming(c); }}>This is mine</button>
                   )}
                   {mine && (
@@ -703,7 +715,7 @@ export default function Scene({ slug, jumpPost }) {
             })}
           </ul>
         )}
-        <p className="muted small">{participants.length} of {MAX_PLAYERS} players have joined. Lost access to your character on a new phone? Tap “This is mine” next to it.</p>
+        <p className="muted small">{participants.length} of {MAX_PLAYERS} players have joined.{reader ? '' : ' Lost access to your character on a new phone? Tap “This is mine” next to it.'}</p>
       </Sheet>
 
       <Sheet open={sheet === 'identity'} onClose={() => setSheet(null)} title="Posting as">
@@ -769,7 +781,7 @@ export default function Scene({ slug, jumpPost }) {
         <DeleteSceneForm scene={scene} onExport={() => setSheet('export')} onDelete={deleteScene} />
       </Sheet>
 
-      <ExportSheet open={sheet === 'export'} onClose={() => setSheet(null)} scene={scene} charsById={charsById} playersByDevice={playersByDevice} />
+      <ExportSheet open={sheet === 'export'} onClose={() => setSheet(null)} scene={scene} canPrint={!reader} charsById={charsById} playersByDevice={playersByDevice} />
 
       <CharacterForm open={!!charForm} character={charForm?.character || null} scene={charForm?.character ? null : scene}
         onClose={() => setCharForm(null)} onSaved={(c) => characterSaved(c, !charForm?.character)}

@@ -80,6 +80,12 @@ const api = {
   removePushSubscription(endpoint) {
     db.push = (db.push || []).filter((x) => x.endpoint !== endpoint);
   },
+  getScenesForViewer: (views) => db.scenes.filter((s) => s.view_slug && views.includes(s.view_slug)).map(({ slug, ...rest }) => rest),
+  ensureViewSlug(sceneId) {
+    const s = db.scenes.find((x) => x.id === sceneId);
+    if (!s.view_slug) s.view_slug = 'r' + randomUUID().replace(/-/g, '').slice(0, 11);
+    return s.view_slug;
+  },
   deleteScene(sceneId, deviceId) {
     const s = db.scenes.find((x) => x.id === sceneId && x.created_by_device === deviceId);
     if (!s) return false;

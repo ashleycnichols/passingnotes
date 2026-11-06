@@ -101,7 +101,7 @@ export default function Feed({ posts, channel, ctx, canEdit, onEdit, onDelete, p
                 </button>
               )}
             </div>
-            {opened && (seg.posts.length ? renderPosts(seg.posts) : <p className="chapter-empty">A new chapter begins. Set the scene, or carry on the story.</p>)}
+            {opened && (seg.posts.length ? renderPosts(seg.posts) : <p className="chapter-empty">A new chapter begins…</p>)}
           </section>
         );
       })}

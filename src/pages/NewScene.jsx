@@ -3,7 +3,7 @@ import { getApi } from '../api.js';
 import { getState, rememberScene, rememberUniverse, useStore } from '../store.js';
 import { go } from '../router.js';
 import { Icon, Segmented, Sheet, toast, errMsg, UniverseInput } from '../ui.jsx';
-import { makeSlug, sceneUrl, shareOrCopy, copyText } from '../util.js';
+import { makeSlug, sceneUrl, shareOrCopy, copyText, baseUrl } from '../util.js';
 import { LookPicker } from '../components/Look.jsx';
 
 export default function NewScene() {
@@ -108,6 +108,39 @@ export function InviteSheet({ scene, onClose, goLabel = 'Done' }) {
         <button className="btn ghost" onClick={onClose}>{goLabel}</button>
       </div>
       <p className="muted small">Anyone with the link can join, up to 10 players. Paste it into Discord, Messenger, WhatsApp or anywhere else.</p>
+      <ReaderLink scene={scene} />
     </Sheet>
+  );
+}
+
+function ReaderLink({ scene }) {
+  const [busy, setBusy] = useState(false);
+  const get = async () => {
+    const api = await getApi();
+    return `${baseUrl()}#/r/${await api.ensureViewSlug(scene.id)}`;
+  };
+  const run = async (fn) => {
+    setBusy(true);
+    try {
+      await fn(await get());
+    } catch (e) {
+      toast(/ensure_view_slug|function/i.test(e.message) ? 'Read-only links need a quick database update first (the readers SQL file).' : errMsg(e), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="reader-invite">
+      <h3 className="sheet-sub">Readers</h3>
+      <p className="muted small">A separate link for people who want to read along. They can’t join, post or see OOC chat.</p>
+      <div className="stack">
+        <button className="btn" disabled={busy} onClick={() => run(async (url) => {
+          const r = await shareOrCopy({ title: `${scene.title} (read only)`, text: `Read “${scene.title}” on ${window.PN_CONFIG?.appName || 'Passing Notes'}`, url });
+          if (r === 'copied') toast('Read-only link copied');
+        })}><Icon name="book" size={18} /> Share read-only link</button>
+        <button className="btn ghost" disabled={busy} onClick={() => run(async (url) => { await copyText(url); toast('Read-only link copied'); })}>
+          <Icon name="copy" size={18} /> Copy read-only link</button>
+      </div>
+    </section>
   );
 }

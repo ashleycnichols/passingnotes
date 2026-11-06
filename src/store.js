@@ -20,6 +20,7 @@ function blank() {
     dismissedInstallTip: false,
     lastBackupAt: null,
     openChapters: {}, // slug -> { chapterKey: true/false }
+    myReads: [], // [{ view, lastOpenedAt }] scenes followed with a read-only link
   };
 }
 
@@ -119,6 +120,22 @@ export function rememberScene(slug) {
   });
 }
 
+export function rememberRead(view) {
+  update((s) => {
+    const now = new Date().toISOString();
+    const list = s.myReads || [];
+    s.myReads = list.some((x) => x.view === view)
+      ? list.map((x) => (x.view === view ? { ...x, lastOpenedAt: now } : x))
+      : [...list, { view, lastOpenedAt: now }];
+  });
+}
+
+export function forgetRead(view) {
+  update((s) => {
+    s.myReads = (s.myReads || []).filter((x) => x.view !== view);
+  });
+}
+
 export function forgetScene(slug) {
   update((s) => {
     s.myScenes = s.myScenes.filter((x) => x.slug !== slug);
@@ -159,6 +176,7 @@ export function backupPayload() {
     v: 1,
     c: state.myCharacters,
     s: state.myScenes.map(({ slug, hidden }) => ({ slug, hidden })),
+    r: (state.myReads || []).map(({ view }) => view),
     p: state.playerName,
     u: state.recentUniverses,
   };
@@ -177,6 +195,8 @@ export function restoreFrom(data) {
     scenes = addS.length;
     s.myScenes = [...s.myScenes, ...addS.map((x) => ({ slug: x.slug, hidden: !!x.hidden, lastOpenedAt: null }))];
     if (!s.playerName && data.p) s.playerName = data.p;
+    const reads = new Set((s.myReads || []).map((x) => x.view));
+    s.myReads = [...(s.myReads || []), ...(data.r || []).filter((v) => !reads.has(v)).map((v) => ({ view: v, lastOpenedAt: null }))];
     const seen = new Set(s.recentUniverses.map(universeKey));
     s.recentUniverses = [...s.recentUniverses, ...(data.u || []).filter((u) => !seen.has(universeKey(u)))];
   });

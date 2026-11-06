@@ -263,6 +263,27 @@ with sync_playwright() as pw:
     a.goto(f'{BASE}/#/s/{slug}')
     expect(a.locator('.chapter-title', has_text='Chapter 3: Upstairs')).to_be_visible(timeout=5000)
 
+    # ---- read-only link: a reader can read but not join, post or see OOC
+    b.get_by_role('button', name='Invite players').click()
+    b.get_by_role('button', name='Copy read-only link').click()
+    expect(b.get_by_text('Read-only link copied')).to_be_visible()
+    read_url = b.evaluate('navigator.clipboard.readText()')
+    assert '#/r/' in read_url and slug not in read_url, read_url
+    b.keyboard.press('Escape')
+    rdctx, rd = phone(browser)
+    rd.goto(read_url)
+    expect(rd.get_by_role('heading', name='The Lantern Room')).to_be_visible()
+    expect(rd.get_by_text('You’re reading along')).to_be_visible()
+    assert rd.locator('.composer').count() == 0
+    assert rd.get_by_role('tab', name='OOC chat').count() == 0
+    assert rd.get_by_role('button', name='Join this scene').count() == 0
+    rd.locator('.chapter-toggle', has_text='Beginning').click()
+    expect(rd.locator('.char-post', has_text='not the wind')).to_be_visible()
+    shot(rd, '25-reader')
+    rd.goto(BASE + '/')
+    expect(rd.get_by_role('heading', name='Reading')).to_be_visible()
+    expect(rd.locator('.scene-card.reading', has_text='The Lantern Room')).to_be_visible()
+
     # ---- shared universe list on another device
     b.goto(BASE + '/#/new')
     b.get_by_role('tab', name='Full setup').click()

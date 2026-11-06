@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getApi } from '../api.js';
-import { useStore, update, setSceneHidden, getState, forgetMyCharacter } from '../store.js';
+import { useStore, update, setSceneHidden, getState, forgetMyCharacter, forgetRead } from '../store.js';
 import { go } from '../router.js';
 import { Avatar, Icon, Segmented, Sheet, toast, errMsg, useMedia } from '../ui.jsx';
 import { timeAgo, universeKey, sceneUrl, copyText, slugFromInput, isIOS, isStandalone, inAppBrowser } from '../util.js';
@@ -18,6 +18,8 @@ function universeDot(key) {
 export default function Home() {
   const myScenes = useStore((s) => s.myScenes);
   const myChars = useStore((s) => s.myCharacters);
+  const myReads = useStore((s) => s.myReads || []);
+  const [readScenes, setReadScenes] = useState([]);
   const filter = useStore((s) => s.homeFilter);
   const grouped = useStore((s) => s.homeGrouped);
   const dismissedTip = useStore((s) => s.dismissedInstallTip);
@@ -34,15 +36,21 @@ export default function Home() {
   const [err, setErr] = useState(null);
 
   const slugs = myScenes.map((s) => s.slug).join(',');
+  const views = myReads.map((r) => r.view).join(',');
   useEffect(() => {
     let live = true;
     (async () => {
       try {
         const api = await getApi();
-        const list = await api.getScenesBySlugs(slugs ? slugs.split(',') : []);
+        const [list, reading] = await Promise.all([
+          api.getScenesBySlugs(slugs ? slugs.split(',') : []),
+          views ? api.getScenesForViewer(views.split(',')).catch(() => []) : Promise.resolve([]),
+        ]);
         if (!live) return;
         setScenes(list);
-        const ids = list.map((s) => s.id);
+        const mineIds = new Set(list.map((s) => s.id));
+        setReadScenes(reading.filter((s) => !mineIds.has(s.id)));
+        const ids = [...list.map((s) => s.id), ...reading.filter((s) => !mineIds.has(s.id)).map((s) => s.id)];
         const [r, l, ch] = await Promise.all([
           api.getRoster(ids),
           Promise.all(ids.map((id) => api.getLatestPost(id).then((p) => [id, p]))),
@@ -63,7 +71,7 @@ export default function Home() {
     return () => {
       live = false;
     };
-  }, [slugs]);
+  }, [slugs, views]);
 
   const meta = useMemo(() => Object.fromEntries(myScenes.map((s) => [s.slug, s])), [myScenes]);
   const rosterBy = useMemo(() => {
@@ -100,9 +108,10 @@ export default function Home() {
   const app = inAppBrowser();
   const showTip = (isIOS() || !!app) && !isStandalone() && !dismissedTip && myScenes.length > 0;
 
+  const readMeta = Object.fromEntries(myReads.map((r) => [r.view, r]));
   const info = (s) => {
     const lp = latest[s.id];
-    const seen = meta[s.slug]?.lastOpenedAt;
+    const seen = s.view_slug && !s.slug ? readMeta[s.view_slug]?.lastOpenedAt : meta[s.slug]?.lastOpenedAt;
     const me = getState().deviceId;
     return {
       lp,
@@ -136,9 +145,10 @@ export default function Home() {
 
   const card = (s) => {
     const d = info(s);
+    const reading = !s.slug;
     return (
       <li key={s.id}>
-        <a className="scene-card themed" href={`#/s/${s.slug}`} style={themeStyle(s.theme, s.font)}>
+        <a className={`scene-card themed${reading ? ' reading' : ''}`} href={reading ? `#/r/${s.view_slug}` : `#/s/${s.slug}`} style={themeStyle(s.theme, s.font)}>
           <div className="scene-card-top">
             <span className="card-kicker">{s.universe || 'No universe'}{d.chapter ? ` · ${d.chapter.body}` : ''}</span>
             {optionsBtn(s)}
@@ -150,7 +160,7 @@ export default function Home() {
               {d.rs.slice(0, 5).map((c) => <Avatar key={c.id} c={c} size={24} />)}
               {d.rs.length > 5 && <span className="more-count">+{d.rs.length - 5}</span>}
             </span>
-            {d.tagged ? <span className="tagged-badge">@ You were tagged</span> : <span className="card-time">{timeAgo(s.last_post_at || s.created_at)}</span>}
+            {d.tagged ? <span className="tagged-badge">@ You were tagged</span> : <span className="card-time">{reading ? 'Reading · ' : ''}{timeAgo(s.last_post_at || s.created_at)}</span>}
           </div>
         </a>
       </li>
@@ -206,7 +216,7 @@ export default function Home() {
       {err && <p className="error-box">{err}</p>}
       {scenes === null ? (
         <ul className="scene-grid">{[0, 1, 2].map((i) => <li key={i}><div className="scene-card skeleton" /></li>)}</ul>
-      ) : visible.length === 0 && !showHidden ? (
+      ) : visible.length === 0 && !showHidden && readScenes.length === 0 ? (
         <div className="empty welcome">
           <img src="icons/icon-192.png" alt="" width="88" height="88" className="welcome-logo" />
           <h2>Write a story together</h2>
@@ -260,6 +270,12 @@ export default function Home() {
             <ul className="scene-grid">{(showHidden ? filtered : gridList).map(card)}</ul>
           )}
           {filter !== 'all' && filtered.length === 0 && <p className="muted center">Nothing here.</p>}
+          {readScenes.length > 0 && !showHidden && filter === 'all' && (
+            <section className="home-section">
+              <h2 className="section-label">Reading</h2>
+              <ul className="scene-grid">{readScenes.map(card)}</ul>
+            </section>
+          )}
         </>
       )}
       {!showHidden && hiddenCount > 0 && (
@@ -287,7 +303,12 @@ export default function Home() {
   const sheets = (
     <>
       <Sheet open={!!menuFor} onClose={() => setMenuFor(null)} title={menuFor?.title || ''}>
-        {menuFor && (
+        {menuFor && !menuFor.slug && (
+          <div className="menu-list">
+            <button onClick={() => { forgetRead(menuFor.view_slug); setMenuFor(null); }}><Icon name="eyeOff" /> Remove from my list</button>
+          </div>
+        )}
+        {menuFor && menuFor.slug && (
           <div className="menu-list">
             <button onClick={async () => { await copyText(sceneUrl(menuFor.slug)); toast('Invite link copied'); setMenuFor(null); }}>
               <Icon name="link" /> Copy invite link
