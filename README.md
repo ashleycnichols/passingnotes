@@ -40,4 +40,4 @@ Free Supabase projects pause after 7 days with no activity. `.github/workflows/k
 
 ## Usage stats
 
-Run `supabase/migrations/20261107120000_usage_stats.sql` after replacing `CHANGE-ME` with your own passcode, then open `#/stats` (also linked at the bottom of Settings). Totals, the last 7 days against the 7 before, posts per day, top scenes and universes. To change the passcode, edit that line and run the file again.
+Run `supabase/migrations/20261107120000_usage_stats.sql`, then set a passcode in the SQL Editor with `select public.set_stats_passcode('your passcode');`, then open `#/stats` (also linked at the bottom of Settings). Totals, the last 7 days against the 7 before, posts per day, top scenes and universes. To change the passcode, run `set_stats_passcode` again.

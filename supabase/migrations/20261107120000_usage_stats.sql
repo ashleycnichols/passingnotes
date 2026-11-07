@@ -1,8 +1,9 @@
 -- Passing Notes: private usage stats for the app owner.
--- 1. Change CHANGE-ME below to a passcode only you know (letters and numbers, no quotes).
--- 2. Paste into Supabase > SQL Editor > New query and press Run.
--- 3. Open the app at #/stats and enter that passcode.
--- To change the passcode later, edit the line and run this file again.
+-- 1. Paste this whole file into Supabase > SQL Editor > New query and press Run.
+-- 2. Then set your passcode with this one line (in a new query), keeping the quotes:
+--      select public.set_stats_passcode('your passcode here');
+-- 3. Open the app at #/stats and enter that passcode. Capitals and spaces at the ends don't matter.
+-- To change the passcode later, run step 2 again.
 
 -- Keeps the other migrations' columns in place even if one was skipped.
 alter table public.scenes add column if not exists view_slug text unique;
@@ -16,8 +17,18 @@ create table if not exists private.app_settings (key text primary key, value tex
 alter table private.app_settings enable row level security;
 revoke all on private.app_settings from public, anon, authenticated;
 
-insert into private.app_settings (key, value) values ('stats_code', 'CHANGE-ME')
-on conflict (key) do update set value = excluded.value;
+-- Only the database owner (you, in the SQL Editor) can set the passcode.
+create or replace function public.set_stats_passcode(p_code text)
+returns text language plpgsql security definer set search_path = private as $$
+begin
+  if coalesce(trim(p_code), '') = '' then
+    raise exception 'Choose a passcode that is not empty';
+  end if;
+  insert into private.app_settings (key, value) values ('stats_code', trim(p_code))
+  on conflict (key) do update set value = excluded.value;
+  return 'Passcode saved';
+end $$;
+revoke all on function public.set_stats_passcode(text) from public, anon, authenticated;
 
 -- Returns totals, the last 7 days against the 7 before, a 30-day daily series,
 -- universes and the most active scenes. Returns nothing without the right passcode.
@@ -27,7 +38,8 @@ declare
   ok boolean;
   since timestamptz := date_trunc('day', now()) - interval '29 days';
 begin
-  select value = p_code and value <> 'CHANGE-ME' into ok from private.app_settings where key = 'stats_code';
+  select coalesce(value, '') <> '' and lower(trim(value)) = lower(trim(coalesce(p_code, ''))) into ok
+    from private.app_settings where key = 'stats_code';
   if not coalesce(ok, false) then
     return null;
   end if;
