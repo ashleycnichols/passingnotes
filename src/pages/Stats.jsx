@@ -57,7 +57,8 @@ export default function Stats() {
             <h2>Owner stats</h2>
             <p className="muted">Enter the passcode you set in the usage stats SQL file. This device will remember it.</p>
             <label className="field"><span>Passcode</span>
-              <input type="password" value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus autoComplete="current-password" />
+              <input type="text" value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus
+                autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} name="pn-stats-passcode" data-1p-ignore data-lpignore="true" />
             </label>
             {state === 'wrong' && <p className="error-box">That passcode didn’t work.</p>}
             <button className="btn primary block" disabled={!draft.trim()}>Show stats</button>
