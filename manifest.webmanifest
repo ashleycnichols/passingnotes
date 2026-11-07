@@ -1,7 +1,7 @@
 {
   "name": "Passing Notes",
   "short_name": "Passing Notes",
-  "description": "Write a story together. No sign-up.",
+  "description": "A forever free written RP tool for the LARP community.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
