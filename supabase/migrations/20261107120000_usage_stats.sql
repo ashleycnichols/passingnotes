@@ -13,6 +13,8 @@ alter table public.posts add column if not exists ref_post_id uuid references pu
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
 create table if not exists private.app_settings (key text primary key, value text not null);
+alter table private.app_settings enable row level security;
+revoke all on private.app_settings from public, anon, authenticated;
 
 insert into private.app_settings (key, value) values ('stats_code', 'CHANGE-ME')
 on conflict (key) do update set value = excluded.value;
