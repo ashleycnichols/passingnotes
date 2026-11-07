@@ -87,6 +87,18 @@ function Report({ d, onLock }) {
     <>
       <p className="muted small stats-updated">Updated {new Date(d.generated_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>
 
+      {t.devices_ever !== undefined && (
+        <section className="stats-section">
+          <h2 className="section-label">People (devices that opened the app)</h2>
+          <div className="stat-grid">
+            <Tile label="All time" value={t.devices_ever} hero />
+            <Tile label="Last 7 days" value={l.devices} change={<Change now={l.devices} prev={p.devices} />} />
+            <Tile label="New in the last 7 days" value={l.new_devices} change={<Change now={l.new_devices} prev={p.new_devices} />} />
+            <Tile label="Last 30 days" value={t.devices_30d} />
+          </div>
+        </section>
+      )}
+
       <section className="stats-section">
         <h2 className="section-label">All time</h2>
         <div className="stat-grid">
@@ -116,8 +128,15 @@ function Report({ d, onLock }) {
 
       <section className="stats-section">
         <h2 className="section-label">Story posts per day, last 30 days</h2>
-        <DailyChart days={d.daily || []} />
+        <DailyChart days={d.daily || []} field="posts" one="story post" many="story posts" />
       </section>
+
+      {t.devices_ever !== undefined && (
+        <section className="stats-section">
+          <h2 className="section-label">Devices that opened the app per day, last 30 days</h2>
+          <DailyChart days={d.daily || []} field="devices" one="device" many="devices" />
+        </section>
+      )}
 
       <div className="stats-two">
         <section className="stats-section">
@@ -153,7 +172,7 @@ function Report({ d, onLock }) {
         </section>
       </div>
 
-      <p className="muted small stats-note">No accounts means these count devices, not people: someone playing on a phone and a laptop counts twice. Posts exclude chapter breaks and tag pings.</p>
+      <p className="muted small stats-note">No accounts means these count devices, not people: someone using a phone and a laptop counts twice, and a private browser window counts as a new device. Your own devices are included. Posts exclude chapter breaks and tag pings.</p>
       <button className="link-btn center-block" onClick={onLock}>Forget passcode on this device</button>
     </>
   );
@@ -170,7 +189,7 @@ function Tile({ label, value, note, change, hero }) {
   );
 }
 
-function DailyChart({ days }) {
+function DailyChart({ days, field, one, many }) {
   const [hover, setHover] = useState(null);
   const box = useRef(null);
   const [W, setW] = useState(680);
@@ -188,7 +207,8 @@ function DailyChart({ days }) {
   const padL = 32;
   const padB = 24;
   const padT = 10;
-  const max = Math.max(1, ...days.map((x) => x.posts));
+  const val = (x) => x[field] || 0;
+  const max = Math.max(1, ...days.map(val));
   const step = Math.ceil(max / 4);
   const top = step * 4;
   const n = days.length || 1;
@@ -196,12 +216,13 @@ function DailyChart({ days }) {
   const bw = Math.max(4, slot - 2);
   const y = (v) => padT + (H - padT - padB) * (1 - v / top);
   const label = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-  const total = days.reduce((a, x) => a + x.posts, 0);
+  const total = days.reduce((a, x) => a + val(x), 0);
+  const peak = days.reduce((a, x) => Math.max(a, val(x)), 0);
   const h = hover !== null ? days[hover] : null;
   return (
     <div className="chart-wrap">
       <div ref={box}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Story posts per day for the last 30 days, ${fmt(total)} in total`}
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${many} per day for the last 30 days`}
         onMouseLeave={() => setHover(null)}>
         {[0, 1, 2, 3, 4].map((i) => (
           <g key={i}>
@@ -211,7 +232,7 @@ function DailyChart({ days }) {
         ))}
         {days.map((dd, i) => {
           const x = padL + i * slot + (slot - bw) / 2;
-          const yy = y(dd.posts);
+          const yy = y(val(dd));
           const hgt = Math.max(0, H - padB - yy);
           const r = Math.min(4, bw / 2, hgt);
           return (
@@ -230,14 +251,15 @@ function DailyChart({ days }) {
       </svg>
       </div>
       <div className="chart-readout" aria-live="polite">
-        {h ? <><strong>{label(h.day)}</strong>: {fmt(h.posts)} {h.posts === 1 ? 'post' : 'posts'}{h.scenes ? `, ${h.scenes} new ${h.scenes === 1 ? 'scene' : 'scenes'}` : ''}</>
-          : <>{fmt(total)} story posts in 30 days. Hover or tap a bar for the day.</>}
+        {h ? <><strong>{label(h.day)}</strong>: {fmt(val(h))} {val(h) === 1 ? one : many}{field === 'posts' && h.scenes ? `, ${h.scenes} new ${h.scenes === 1 ? 'scene' : 'scenes'}` : ''}</>
+          : field === 'posts' ? <>{fmt(total)} {many} in 30 days. Hover or tap a bar for the day.</>
+            : <>Busiest day: {fmt(peak)} {peak === 1 ? one : many}. Hover or tap a bar for the day.</>}
       </div>
       <details className="chart-table">
         <summary>Show as a table</summary>
         <table className="stats-table">
-          <thead><tr><th>Day</th><th className="num">Story posts</th><th className="num">New scenes</th></tr></thead>
-          <tbody>{[...days].reverse().map((dd) => <tr key={dd.day}><td>{label(dd.day)}</td><td className="num">{dd.posts}</td><td className="num">{dd.scenes}</td></tr>)}</tbody>
+          <thead><tr><th>Day</th><th className="num">{many[0].toUpperCase() + many.slice(1)}</th>{field === 'posts' && <th className="num">New scenes</th>}</tr></thead>
+          <tbody>{[...days].reverse().map((dd) => <tr key={dd.day}><td>{label(dd.day)}</td><td className="num">{val(dd)}</td>{field === 'posts' && <td className="num">{dd.scenes}</td>}</tr>)}</tbody>
         </table>
       </details>
     </div>

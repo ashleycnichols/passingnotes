@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { Component } from 'react';
 import { useRoute } from './router.js';
-import { isConfigured } from './api.js';
+import { isConfigured, getApi } from './api.js';
 import { Toasts } from './ui.jsx';
 import { registerServiceWorker, syncPush } from './push.js';
 import { getState, subscribeStore, useStore, update } from './store.js';
@@ -74,6 +74,15 @@ function App() {
 }
 
 registerServiceWorker();
+
+// Once a day, note that this device opened the app (random device ID and date only).
+(() => {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!isConfigured() || getState().lastVisitDay === today) return;
+  getApi().then((api) => api.recordVisit(getState().deviceId))
+    .then(() => update((s) => (s.lastVisitDay = today)))
+    .catch(() => {});
+})();
 
 // Keep this device's notification registration in step with the characters it plays.
 let lastChars = getState().myCharacters.map((c) => c.id).join(',');

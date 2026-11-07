@@ -79,6 +79,11 @@ const api = {
   removePushSubscription(endpoint) {
     db.push = (db.push || []).filter((x) => x.endpoint !== endpoint);
   },
+  recordVisit(deviceId) {
+    const day = new Date().toISOString().slice(0, 10);
+    db.visits = db.visits || [];
+    if (!db.visits.some((v) => v.device_id === deviceId && v.day === day)) db.visits.push({ device_id: deviceId, day });
+  },
   usageStats(code) {
     if (code !== 'test-code') return null;
     const day = 86400000;
@@ -103,6 +108,12 @@ const api = {
       if (!unis.has(k)) unis.set(k, { name: s.universe.trim(), scenes: 0, posts: 0 });
       const u = unis.get(k); u.scenes++; u.posts += story.filter((p) => p.scene_id === s.id).length;
     });
+    const visits = db.visits || [];
+    const vd = (a, b) => visits.filter((v) => within(`${v.day}T12:00:00Z`, a, b));
+    const firstDay = {};
+    visits.forEach((v) => { if (!firstDay[v.device_id] || v.day < firstDay[v.device_id]) firstDay[v.device_id] = v.day; });
+    const newIn = (a, b) => Object.values(firstDay).filter((d) => within(`${d}T12:00:00Z`, a, b)).length;
+    daily.forEach((x) => (x.devices = new Set(visits.filter((v) => v.day === x.day).map((v) => v.device_id)).size));
     return {
       generated_at: new Date().toISOString(),
       totals: {
@@ -111,8 +122,11 @@ const api = {
         ooc_posts: db.posts.filter((p) => p.channel === 'ooc' && !p.ref_post_id).length,
         chapters: db.posts.filter((p) => p.kind === 'chapter').length, universes: unis.size,
         reader_links: db.scenes.filter((s) => s.view_slug).length,
+        devices_ever: Object.keys(firstDay).length, devices_30d: new Set(vd(0, 30).map((v) => v.device_id)).size,
       },
-      last7: week(0, 7), prev7: week(7, 14), daily,
+      last7: { ...week(0, 7), devices: new Set(vd(0, 7).map((v) => v.device_id)).size, new_devices: newIn(0, 7) },
+      prev7: { ...week(7, 14), devices: new Set(vd(7, 14).map((v) => v.device_id)).size, new_devices: newIn(7, 14) },
+      daily,
       universes: [...unis.values()].sort((a, b) => b.scenes - a.scenes),
       top_scenes: db.scenes.map((s) => ({ title: s.title, universe: s.universe, players: db.participants.filter((p) => p.scene_id === s.id).length,
         posts_30d: story.filter((p) => p.scene_id === s.id).length, last_post_at: s.last_post_at })).filter((s) => s.posts_30d).sort((a, b) => b.posts_30d - a.posts_30d).slice(0, 5),

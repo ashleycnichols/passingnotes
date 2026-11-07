@@ -20,6 +20,7 @@ function blank() {
     dismissedInstallTip: false,
     lastBackupAt: null,
     seenIntro: false,
+    lastVisitDay: null, // last day this device checked in for the owner's usage stats
     openChapters: {}, // slug -> { chapterKey: true/false }
     myReads: [], // [{ view, lastOpenedAt }] scenes followed with a read-only link
   };

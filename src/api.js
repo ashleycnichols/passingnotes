@@ -121,6 +121,9 @@ async function supabaseApi(cfg) {
     async removePushSubscription(endpoint) {
       check(await sb.rpc('remove_push_subscription', { p_endpoint: endpoint }));
     },
+    async recordVisit(deviceId) {
+      check(await sb.rpc('record_visit', { p_device_id: deviceId }));
+    },
     async usageStats(code) {
       return check(await sb.rpc('usage_stats', { p_code: code }));
     },
@@ -247,7 +250,7 @@ function mockApi(base) {
   };
   const names = [
     'getSceneBySlug', 'getScenesBySlugs', 'getScenesByIds', 'createScene', 'updateScene', 'joinScene', 'getParticipants', 'setPlayerName',
-    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'getMentions', 'getLatestChapter', 'getScenesForViewer', 'ensureViewSlug', 'usageStats', 'deleteScene', 'deleteCharacter', 'savePushSubscription', 'removePushSubscription', 'addToScene', 'removeFromScene',
+    'getRoster', 'getCharacters', 'createCharacter', 'updateCharacter', 'verifyKey', 'reclaimCharacter', 'listUniverses', 'getMentions', 'getLatestChapter', 'getScenesForViewer', 'ensureViewSlug', 'usageStats', 'recordVisit', 'deleteScene', 'deleteCharacter', 'savePushSubscription', 'removePushSubscription', 'addToScene', 'removeFromScene',
     'getSceneIdsForCharacters', 'getPosts', 'getAllPosts', 'getLatestPost', 'createPost', 'updatePost', 'deletePost',
   ];
   const api = {};

@@ -373,6 +373,8 @@ with sync_playwright() as pw:
     expect(a.locator('.stat-tile', has_text='Scenes').first).to_be_visible()
     a.reload()
     expect(a.get_by_text('Story posts per day, last 30 days')).to_be_visible()
+    expect(a.get_by_text('People (devices that opened the app)')).to_be_visible()
+    assert int(a.locator('.stat-tile.hero .stat-value').first.inner_text().replace(',', '')) >= 5
     a.wait_for_timeout(300)
     a.screenshot(path=f'{OUT}/27-stats.png', full_page=True)
 
