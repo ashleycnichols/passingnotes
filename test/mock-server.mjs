@@ -41,7 +41,6 @@ const api = {
   joinScene(sceneId, deviceId, playerName) {
     if (!db.scenes.some((s) => s.id === sceneId)) return 'missing';
     if (db.participants.some((p) => p.scene_id === sceneId && p.device_id === deviceId)) return 'already';
-    if (db.participants.filter((p) => p.scene_id === sceneId).length >= 10) return 'full';
     db.participants.push({ id: randomUUID(), scene_id: sceneId, device_id: deviceId, player_name: playerName || null, joined_at: now() });
     emit(sceneId, { type: 'participants' });
     return 'joined';
@@ -80,6 +79,45 @@ const api = {
   removePushSubscription(endpoint) {
     db.push = (db.push || []).filter((x) => x.endpoint !== endpoint);
   },
+  usageStats(code) {
+    if (code !== 'test-code') return null;
+    const day = 86400000;
+    const t0 = Date.now();
+    const story = db.posts.filter((p) => p.channel === 'story' && ['character', 'narrator'].includes(p.kind));
+    const within = (iso, a, b) => t0 - Date.parse(iso) < b * day && t0 - Date.parse(iso) >= a * day;
+    const week = (a, b) => ({
+      new_scenes: db.scenes.filter((s) => within(s.created_at, a, b)).length,
+      new_characters: db.characters.filter((c) => within(c.created_at, a, b)).length,
+      story_posts: story.filter((p) => within(p.created_at, a, b)).length,
+      active_scenes: new Set(story.filter((p) => within(p.created_at, a, b)).map((p) => p.scene_id)).size,
+      active_writers: new Set(db.posts.filter((p) => within(p.created_at, a, b)).map((p) => p.author_device_id)).size,
+    });
+    const daily = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(t0 - i * day).toISOString().slice(0, 10);
+      daily.push({ day: d, posts: story.filter((p) => p.created_at.slice(0, 10) === d).length, scenes: db.scenes.filter((s) => s.created_at.slice(0, 10) === d).length });
+    }
+    const unis = new Map();
+    db.scenes.filter((s) => (s.universe || '').trim()).forEach((s) => {
+      const k = s.universe.trim().toLowerCase();
+      if (!unis.has(k)) unis.set(k, { name: s.universe.trim(), scenes: 0, posts: 0 });
+      const u = unis.get(k); u.scenes++; u.posts += story.filter((p) => p.scene_id === s.id).length;
+    });
+    return {
+      generated_at: new Date().toISOString(),
+      totals: {
+        scenes: db.scenes.length, characters: db.characters.filter((c) => !c.deleted_at).length,
+        players: new Set(db.participants.map((p) => p.device_id)).size, story_posts: story.length,
+        ooc_posts: db.posts.filter((p) => p.channel === 'ooc' && !p.ref_post_id).length,
+        chapters: db.posts.filter((p) => p.kind === 'chapter').length, universes: unis.size,
+        reader_links: db.scenes.filter((s) => s.view_slug).length,
+      },
+      last7: week(0, 7), prev7: week(7, 14), daily,
+      universes: [...unis.values()].sort((a, b) => b.scenes - a.scenes),
+      top_scenes: db.scenes.map((s) => ({ title: s.title, universe: s.universe, players: db.participants.filter((p) => p.scene_id === s.id).length,
+        posts_30d: story.filter((p) => p.scene_id === s.id).length, last_post_at: s.last_post_at })).filter((s) => s.posts_30d).sort((a, b) => b.posts_30d - a.posts_30d).slice(0, 5),
+    };
+  },
   getScenesForViewer: (views) => db.scenes.filter((s) => s.view_slug && views.includes(s.view_slug)).map(({ slug, ...rest }) => rest),
   ensureViewSlug(sceneId) {
     const s = db.scenes.find((x) => x.id === sceneId);
@@ -111,6 +149,7 @@ const api = {
   verifyKey: (id, key) => db.characters.some((c) => c.id === id && c.owner_key === key),
   addToScene(sceneId, characterId, deviceId) {
     if (db.links.some((l) => l.scene_id === sceneId && l.character_id === characterId)) return;
+    if (db.links.filter((l) => l.scene_id === sceneId).length >= 10) throw new Error('scene_full: this scene already has 10 characters');
     db.links.push({ id: randomUUID(), scene_id: sceneId, character_id: characterId, added_by_device: deviceId, added_at: now() });
     emit(sceneId, { type: 'roster' });
   },

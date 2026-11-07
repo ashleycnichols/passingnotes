@@ -37,3 +37,7 @@ Free Supabase projects pause after 7 days with no activity. `.github/workflows/k
 - The database trigger in the notifications migration calls the `notify-tag` Edge Function (`supabase/functions/notify-tag/index.ts`) for every new tag ping.
 - Generate a VAPID key pair with `tools/vapid.html` (runs in your browser, sends nothing). Put the public key in `config.js` as `vapidPublicKey`. Add both keys as Edge Function secrets `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Never commit the private key.
 - Turn off JWT verification for `notify-tag`. Check it's working under Supabase > Edge Functions > notify-tag > Logs.
+
+## Usage stats
+
+Run `supabase/migrations/20261107120000_usage_stats.sql` after replacing `CHANGE-ME` with your own passcode, then open `#/stats` (also linked at the bottom of Settings). Totals, the last 7 days against the 7 before, posts per day, top scenes and universes. To change the passcode, edit that line and run the file again.

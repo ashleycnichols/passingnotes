@@ -25,6 +25,7 @@ const P = {
   users: 'M16 20v-1a4 4 0 00-4-4H7a4 4 0 00-4 4v1M9.5 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM21 20v-1a4 4 0 00-3-3.9M16 4.1a3.5 3.5 0 010 6.8',
   upload: 'M12 16V4M6 10l6-6 6 6M4 20h16',
   feather: 'M20 4c-6 0-11 4-12 11l-3 5M8 15h6M10 11h7',
+  refresh: 'M20 12a8 8 0 11-2.34-5.66M20 4v5h-5',
 };
 
 export function Icon({ name, size = 20, stroke = 2, className }) {
@@ -125,6 +126,7 @@ export function Toasts() {
 export function errMsg(e) {
   const m = (e && e.message) || String(e);
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'No connection. Check your internet and try again.';
+  if (/scene_full/i.test(m)) return 'This scene already has 10 characters, the most it can hold.';
   return m;
 }
 

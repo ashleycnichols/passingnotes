@@ -150,6 +150,7 @@ export function Settings() {
       </section>
 
       <button className="link-btn center-block" onClick={() => go('/how')}>How it works</button>
+      <button className="link-btn center-block muted-link" onClick={() => go('/stats')}>Usage stats (owner)</button>
     </Shell>
   );
 }
@@ -161,7 +162,7 @@ export function HowItWorks() {
         <h2>No accounts</h2>
         <p>There are no logins. This device remembers which characters are yours and which scenes you’ve joined. Add the app to your Home Screen and keep a backup link (in Settings) so you never lose them.</p>
         <h2>Scenes are invite-only</h2>
-        <p>Scenes are never listed or searchable. The invite link is the only way in, and each scene holds up to 10 players. A separate read-only link lets friends read along without joining.</p>
+        <p>Scenes are never listed or searchable. The invite link is the only way in, and each scene holds up to 10 characters. A separate read-only link lets friends read along without joining.</p>
         <h2>Built on trust</h2>
         <p>This is a friendly space for people who know each other. Anyone with a scene’s link can join it, so share links only with people you’d invite to the table, and don’t write anything you’d be upset to see passed around.</p>
         <h2>Writing together</h2>

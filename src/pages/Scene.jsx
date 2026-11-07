@@ -15,7 +15,7 @@ import { InviteSheet } from './NewScene.jsx';
 import { usePushStatus, enablePush, disablePush } from '../push.js';
 
 const PAGE = 50;
-const MAX_PLAYERS = 10;
+const MAX_CHARACTERS = 10;
 
 function merge(list, rows) {
   const m = new Map(list.map((p) => [p.id, p]));
@@ -86,7 +86,7 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
   const myIds = useMemo(() => new Set(myChars.map((c) => c.id)), [myChars]);
   const myInScene = roster.filter((c) => myIds.has(c.id));
   const joined = !reader && participants.some((p) => p.device_id === deviceId);
-  const full = !reader && !joined && participants.length >= MAX_PLAYERS;
+  const charsFull = roster.length >= MAX_CHARACTERS;
   const playersByDevice = useMemo(() => Object.fromEntries(participants.map((p) => [p.device_id, p])), [participants]);
   const rosterByDevice = useMemo(() => {
     const m = {};
@@ -241,7 +241,7 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
     try {
       const api = await getApi();
       const r = await api.joinScene(scene.id, deviceId, getState().playerName);
-      if (r === 'full') return toast('This scene is full (10 players).', 'error');
+      if (r === 'full') return toast('This scene is full.', 'error');
       if (r === 'missing') return toast('This scene no longer exists.', 'error');
       rememberScene(slug);
       if (characterId) {
@@ -299,7 +299,7 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
       const api = await getApi();
       if (!joined) {
         const r = await api.joinScene(scene.id, deviceId, getState().playerName);
-        if (r === 'full') return toast('This scene is full (10 players).', 'error');
+        if (r === 'full') return toast('This scene is full.', 'error');
         rememberScene(slug);
       }
       const key = await api.reclaimCharacter(c.id, scene.id);
@@ -493,9 +493,7 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
     </div>
   ) : (
         <div className="join-bar">
-      {full ? (
-        <p>This scene is full (10 players). You can still read along.</p>
-      ) : (
+      {(
         <>
           {inAppBrowser() && <p className="small inapp-note">You’re in {inAppBrowser()}’s browser, which forgets your characters. For best results, open this link in Safari or Chrome.</p>}
           <button className="btn primary block" onClick={() => setSheet('join')}>Join this scene</button>
@@ -564,7 +562,7 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
               </section>
             )}
             <section className="desk-card">
-              <h3 className="desk-h">Who’s in <span className="muted small">{participants.length} of {MAX_PLAYERS} players</span></h3>
+              <h3 className="desk-h">Who’s in <span className="muted small">{roster.length} of {MAX_CHARACTERS} characters</span></h3>
               {roster.length === 0 && <p className="muted small">No characters yet.</p>}
               <ul className="desk-roster">
                 {roster.map((c) => (
@@ -715,7 +713,7 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
             })}
           </ul>
         )}
-        <p className="muted small">{participants.length} of {MAX_PLAYERS} players have joined.{reader ? '' : ' Lost access to your character on a new phone? Tap “This is mine” next to it.'}</p>
+        <p className="muted small">{roster.length} of {MAX_CHARACTERS} characters.{reader ? '' : ' Lost access to your character on a new phone? Tap “This is mine” next to it.'}</p>
       </Sheet>
 
       <Sheet open={sheet === 'identity'} onClose={() => setSheet(null)} title="Posting as">
@@ -736,8 +734,10 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
       </Sheet>
 
       <Sheet open={sheet === 'addChar'} onClose={() => setSheet(null)} title="Add a character">
-        <AddCharacterPicker ids={savedNotHere} sceneUniverse={scene.universe} onPick={addExisting}
-          onNew={() => { setSheet(null); setCharForm({}); }} />
+        {charsFull ? <FullNote /> : (
+          <AddCharacterPicker ids={savedNotHere} sceneUniverse={scene.universe} onPick={addExisting}
+            onNew={() => { setSheet(null); setCharForm({}); }} />
+        )}
       </Sheet>
 
       <Sheet open={sheet === 'join'} onClose={() => setSheet(null)} title={`Join “${scene.title}”`}>
@@ -748,8 +748,10 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
           </div>
         ) : <p className="muted small">Nobody yet. You’re first.</p>}
         <h3 className="sheet-sub">Who are you playing?</h3>
-        <AddCharacterPicker ids={myChars.map((c) => c.id)} sceneUniverse={scene.universe} onPick={(id) => join(id)}
-          onNew={async () => { if (await join(null)) setCharForm({}); }} />
+        {charsFull ? <FullNote joining /> : (
+          <AddCharacterPicker ids={myChars.map((c) => c.id)} sceneUniverse={scene.universe} onPick={(id) => join(id)}
+            onNew={async () => { if (await join(null)) setCharForm({}); }} />
+        )}
         <button className="link-btn center-block" onClick={() => join(null)}>Just join for now</button>
         {roster.length > 0 && (
           <button className="link-btn center-block" onClick={() => setSheet('roster')}>Already playing here on another device? Reclaim your character</button>
@@ -962,5 +964,14 @@ function ChapterForm({ existing, before, ctx, defaultTitle, onSave, onRemove }) 
       <button className="btn primary block" disabled={busy || !title.trim()}>{existing ? 'Save' : 'Start chapter'}</button>
       {onRemove && <button type="button" className="link-btn danger-text center-block" onClick={onRemove}>Remove this chapter break</button>}
     </form>
+  );
+}
+
+function FullNote({ joining }) {
+  return (
+    <p className="warning">
+      This scene has {MAX_CHARACTERS} characters, the most it can hold.
+      {joining ? ' You can still join to chat in OOC, or reclaim your own character if you’re already playing here.' : ' Remove one of your characters from the scene to make room.'}
+    </p>
   );
 }

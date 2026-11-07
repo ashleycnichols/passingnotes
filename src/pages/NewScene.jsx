@@ -107,7 +107,7 @@ export function InviteSheet({ scene, onClose, goLabel = 'Done' }) {
         <button className="btn" onClick={async () => { await copyText(url); toast('Invite link copied'); }}><Icon name="copy" size={18} /> Copy link</button>
         <button className="btn ghost" onClick={onClose}>{goLabel}</button>
       </div>
-      <p className="muted small">Anyone with the link can join, up to 10 players. Paste it into Discord, Messenger, WhatsApp or anywhere else.</p>
+      <p className="muted small">Anyone with the link can join. Each scene holds up to 10 characters. Paste it into Discord, Messenger, WhatsApp or anywhere else.</p>
       <ReaderLink scene={scene} />
     </Sheet>
   );

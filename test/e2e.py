@@ -1,3 +1,4 @@
+import json, uuid
 """Two simulated phones run through the main flows against the mock server.
 Run: node test/mock-server.mjs &  then  python3 test/e2e.py <screenshot-dir>
 """
@@ -298,17 +299,24 @@ with sync_playwright() as pw:
     expect(b.get_by_text('already exists')).to_be_visible()
     shot(b, '19-universe-dropdown')
 
-    # ---- the 10-player limit
-    for i in range(6):  # A, B, the claimed device and the reclaim device already make 4
-        x, xp = phone(browser)
-        xp.goto(f'{BASE}/#/s/{slug}')
-        xp.get_by_role('button', name='Join this scene').click()
-        xp.get_by_role('button', name='Just join for now').click()
-        expect(xp.locator('.composer')).to_be_visible()
-        x.close()
+    # ---- the 10-character limit (devices are unlimited)
+    import urllib.request
+    def mock(fn, *args):
+        req = urllib.request.Request(f'{BASE}/api/{fn}', data=json.dumps(args).encode(), headers={'content-type': 'application/json'})
+        return json.loads(urllib.request.urlopen(req).read())['data']
+    scene_row = mock('getSceneBySlug', slug)
+    have = len(mock('getRoster', [scene_row['id']]))
+    for i in range(10 - have):
+        cid = str(uuid.uuid4())
+        mock('createCharacter', {'id': cid, 'owner_key': str(uuid.uuid4()), 'name': f'Extra {i}', 'color': '#495057', 'created_by_device': 'x'})
+        mock('addToScene', scene_row['id'], cid, str(uuid.uuid4()))
     ectx, e = phone(browser)
     e.goto(f'{BASE}/#/s/{slug}')
-    expect(e.get_by_text('This scene is full (10 players)')).to_be_visible()
+    e.get_by_role('button', name='Join this scene').click()
+    expect(e.get_by_text('the most it can hold')).to_be_visible()
+    assert e.get_by_role('button', name='Create a new character').count() == 0
+    e.get_by_role('button', name='Just join for now').click()
+    expect(e.locator('.composer')).to_be_visible()
 
     # ---- desktop layout
     a.set_viewport_size({'width': 1440, 'height': 900})
@@ -354,6 +362,19 @@ with sync_playwright() as pw:
     a.get_by_role('button', name='Delete this character').click()
     a.get_by_role('button', name='Delete character').click()
     expect(a.get_by_text('No characters on this device')).to_be_visible()
+
+    # ---- owner stats behind a passcode
+    a.goto(BASE + '/#/stats')
+    a.get_by_label('Passcode').fill('wrong')
+    a.get_by_role('button', name='Show stats').click()
+    expect(a.get_by_text('That passcode didn’t work.')).to_be_visible()
+    a.get_by_label('Passcode').fill('test-code')
+    a.get_by_role('button', name='Show stats').click()
+    expect(a.locator('.stat-tile', has_text='Scenes').first).to_be_visible()
+    a.reload()
+    expect(a.get_by_text('Story posts per day, last 30 days')).to_be_visible()
+    a.wait_for_timeout(300)
+    a.screenshot(path=f'{OUT}/27-stats.png', full_page=True)
 
     # ---- first-visit welcome shows once
     ictx, iv = phone(browser, show_intro=True)

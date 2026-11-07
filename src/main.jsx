@@ -10,6 +10,7 @@ import NewScene from './pages/NewScene.jsx';
 import Scene from './pages/Scene.jsx';
 import { PrintView } from './components/Export.jsx';
 import { Claim, Restore, Settings, HowItWorks, WelcomeIntro } from './pages/Device.jsx';
+import Stats from './pages/Stats.jsx';
 
 class Boundary extends Component {
   constructor(p) {
@@ -59,11 +60,12 @@ function App() {
   else if (a === 'restore') page = <Restore data={b} />;
   else if (a === 'settings') page = <Settings />;
   else if (a === 'how') page = <HowItWorks />;
+  else if (a === 'stats') page = <Stats />;
   else page = <Home />;
   return (
     <Boundary key={`${a}/${b}/${c || ''}`}>
       {page}
-      {!seenIntro && !['claim', 'restore', 'how'].includes(a) && !(c && c.startsWith('print')) && (
+      {!seenIntro && !['claim', 'restore', 'how', 'stats'].includes(a) && !(c && c.startsWith('print')) && (
         <WelcomeIntro onDone={() => update((s) => (s.seenIntro = true))} />
       )}
       <Toasts />
