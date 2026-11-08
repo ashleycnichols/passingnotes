@@ -47,23 +47,63 @@ function useMobileShell(active, shellRef) {
     const root = document.documentElement;
     root.classList.add('shell-lock');
     let wasNear = true;
+    let tallest = 0;
+    let measured = false;
+    const touch = window.matchMedia('(pointer: coarse)').matches;
+    const typingField = () => {
+      const a = document.activeElement;
+      return !!a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !['checkbox', 'radio', 'range', 'file', 'button', 'submit', 'color'].includes(a.type)));
+    };
     const place = () => {
       const el = shellRef.current;
       if (!el) return;
       const h = vv ? vv.height : window.innerHeight;
       const top = vv ? vv.offsetTop : 0;
+      tallest = Math.max(tallest, h, window.innerHeight);
       el.style.height = `${Math.round(h)}px`;
       el.style.transform = top ? `translateY(${Math.round(top)}px)` : '';
-      setKeyboard(window.innerHeight - h > 120);
+      // Phones report the keyboard differently. Once this phone has shown
+      // the visible area shrinking for the keyboard, trust that; until then,
+      // treat a focused text box on a touch screen as "keyboard open".
+      const shrunk = tallest - h > 150;
+      const typing = touch && typingField();
+      if (shrunk && typing) measured = true;
+      setKeyboard(measured ? shrunk : shrunk || typing);
       if (wasNear) scrollToBottom();
     };
     const before = () => { wasNear = nearBottom(); };
     const onResize = () => { place(); };
+    const onFocusIn = (e) => {
+      // A button taking focus is not the keyboard opening; focusout handles it.
+      if (!typingField()) return;
+      const inStory = e.target?.closest?.('.m-scroll');
+      if (inStory) {
+        // Editing a post in the story: keep that post in view, not the bottom.
+        wasNear = false;
+        const keep = () => e.target.scrollIntoView?.({ block: 'nearest' });
+        place(); setTimeout(() => { place(); keep(); }, 350);
+      } else {
+        before(); place(); setTimeout(place, 350);
+      }
+    };
+    // Wait for the tap that took focus away to finish, so the strip coming
+    // back never moves a button out from under a finger.
+    let pressing = false;
+    const onDown = () => { pressing = true; };
+    const onUp = () => { pressing = false; };
+    const later = () => { if (pressing) setTimeout(later, 120); else place(); };
+    const onFocusOut = () => { setTimeout(later, 300); setTimeout(later, 600); };
+    const onRotate = () => { tallest = 0; setTimeout(place, 300); };
     place();
     vv?.addEventListener('resize', onResize);
     vv?.addEventListener('scroll', onResize);
     window.addEventListener('resize', onResize);
-    document.addEventListener('focusin', before, true);
+    window.addEventListener('orientationchange', onRotate);
+    document.addEventListener('focusin', onFocusIn, true);
+    document.addEventListener('focusout', onFocusOut, true);
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('pointerup', onUp, true);
+    document.addEventListener('pointercancel', onUp, true);
     const stopPageScroll = () => { if (window.scrollY) window.scrollTo(0, 0); };
     window.addEventListener('scroll', stopPageScroll, { passive: true });
     return () => {
@@ -71,7 +111,12 @@ function useMobileShell(active, shellRef) {
       vv?.removeEventListener('resize', onResize);
       vv?.removeEventListener('scroll', onResize);
       window.removeEventListener('resize', onResize);
-      document.removeEventListener('focusin', before, true);
+      document.removeEventListener('focusin', onFocusIn, true);
+      document.removeEventListener('focusout', onFocusOut, true);
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('pointerup', onUp, true);
+      document.removeEventListener('pointercancel', onUp, true);
+      window.removeEventListener('orientationchange', onRotate);
       window.removeEventListener('scroll', stopPageScroll);
     };
   }, [active, shellRef]);

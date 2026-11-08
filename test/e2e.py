@@ -85,6 +85,12 @@ with sync_playwright() as pw:
     a.locator('.composer textarea').fill('Sterling looks up from the ledger. "That was **not** the wind."')
     a.get_by_role('button', name='Send').click()
     expect(a.locator('.char-post', has_text='not the wind')).to_be_visible()
+    # While typing on a phone the roster strip tucks away; it returns on blur
+    expect(a.locator('.m-shell.typing')).to_be_visible()
+    expect(a.locator('.roster-chip').first).to_be_hidden()
+    a.evaluate('document.activeElement && document.activeElement.blur()')
+    expect(a.locator('.m-shell.typing')).to_have_count(0)
+    expect(a.locator('.roster-chip').first).to_be_visible()
 
     # ---- B joins from the invite link
     b.goto(f'{BASE}/#/s/{slug}')
