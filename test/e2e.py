@@ -116,6 +116,22 @@ with sync_playwright() as pw:
     expect(a.locator('.dot.mention')).to_be_visible(timeout=5000)
     shot(a, '20-ping-badge')
 
+    # Phone layout: the page itself never scrolls; the header and composer stay pinned
+    for i in range(14):
+        b.locator('.composer textarea').fill(f'Filler line {i} to make the story long enough to scroll on a phone screen.')
+        b.get_by_role('button', name='Send').click()
+    b.wait_for_timeout(300)
+    b.locator('.m-scroll').evaluate('el => el.scrollTo(0, 0)')
+    b.mouse.wheel(0, -600)
+    b.wait_for_timeout(200)
+    assert b.evaluate('window.scrollY') == 0
+    hdr = b.locator('.scene-header').bounding_box()
+    bar = b.locator('.m-bar').bounding_box()
+    assert abs(hdr['y']) < 1, hdr
+    assert abs(bar['y'] + bar['height'] - 844) < 2, bar
+    assert b.locator('.m-scroll').evaluate('el => el.scrollTop') < 50
+    b.locator('.m-scroll').evaluate('el => el.scrollTo(0, el.scrollHeight)')
+
     # A sees it live and, because Sterling is tagged, can edit it
     post = a.locator('.char-post', has_text='by the sleeve')
     expect(post).to_be_visible(timeout=5000)

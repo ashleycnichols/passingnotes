@@ -23,12 +23,59 @@ function merge(list, rows) {
   return [...m.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
 }
 
+// On phones the story scrolls inside its own panel; on desktop the page scrolls.
+let scrollerEl = null;
+const scroller = () => scrollerEl || document.scrollingElement || document.documentElement;
+
 function nearBottom() {
-  return window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 160;
+  const el = scroller();
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 160;
 }
 
 function scrollToBottom(smooth = false) {
-  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  const el = scroller();
+  el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+}
+
+// Keep the phone layout exactly the size of the visible area above the keyboard,
+// so nothing slides around when the keyboard opens or the page is scrolled.
+function useMobileShell(active, shellRef) {
+  const [keyboard, setKeyboard] = useState(false);
+  useLayoutEffect(() => {
+    if (!active) return undefined;
+    const vv = window.visualViewport;
+    const root = document.documentElement;
+    root.classList.add('shell-lock');
+    let wasNear = true;
+    const place = () => {
+      const el = shellRef.current;
+      if (!el) return;
+      const h = vv ? vv.height : window.innerHeight;
+      const top = vv ? vv.offsetTop : 0;
+      el.style.height = `${Math.round(h)}px`;
+      el.style.transform = top ? `translateY(${Math.round(top)}px)` : '';
+      setKeyboard(window.innerHeight - h > 120);
+      if (wasNear) scrollToBottom();
+    };
+    const before = () => { wasNear = nearBottom(); };
+    const onResize = () => { place(); };
+    place();
+    vv?.addEventListener('resize', onResize);
+    vv?.addEventListener('scroll', onResize);
+    window.addEventListener('resize', onResize);
+    document.addEventListener('focusin', before, true);
+    const stopPageScroll = () => { if (window.scrollY) window.scrollTo(0, 0); };
+    window.addEventListener('scroll', stopPageScroll, { passive: true });
+    return () => {
+      root.classList.remove('shell-lock');
+      vv?.removeEventListener('resize', onResize);
+      vv?.removeEventListener('scroll', onResize);
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('focusin', before, true);
+      window.removeEventListener('scroll', stopPageScroll);
+    };
+  }, [active, shellRef]);
+  return keyboard;
 }
 
 export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
@@ -63,6 +110,13 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
   const [descOpen, setDescOpen] = useState(!seenDesc);
   const [online, setOnline] = useState(navigator.onLine);
   const desktop = useMedia('(min-width: 1100px)');
+  const shellRef = useRef(null);
+  const mobileScrollRef = useRef(null);
+  const keyboard = useMobileShell(!desktop && !!scene, shellRef);
+  useLayoutEffect(() => {
+    scrollerEl = desktop ? null : mobileScrollRef.current;
+    return () => { scrollerEl = null; };
+  });
   const desktopRef = useRef(desktop);
   desktopRef.current = desktop;
   useEffect(() => {
@@ -225,10 +279,12 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
   }, [scene, seenDesc, slug]);
 
   useEffect(() => {
+    const target = desktop ? window : mobileScrollRef.current;
+    if (!target) return undefined;
     const onScroll = () => nearBottom() && setNewPill(false);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    target.addEventListener('scroll', onScroll, { passive: true });
+    return () => target.removeEventListener('scroll', onScroll);
+  }, [desktop, scene]);
 
   useLayoutEffect(() => {
     setUnread((u) => ({ ...u, [view]: false }));
@@ -431,12 +487,13 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
     if (!list.length) return;
     const api = await getApi();
     const before = list[0].created_at;
-    const h0 = document.documentElement.scrollHeight;
-    const y0 = window.scrollY;
+    const el = scroller();
+    const h0 = el.scrollHeight;
+    const y0 = el.scrollTop;
     const older = await api.getPosts(scene.id, view, { before, limit: PAGE });
     setPosts((prev) => ({ ...prev, [view]: merge(prev[view], older) }));
     setMore((m) => ({ ...m, [view]: older.length === PAGE }));
-    requestAnimationFrame(() => window.scrollTo(0, y0 + document.documentElement.scrollHeight - h0));
+    requestAnimationFrame(() => el.scrollTo(0, y0 + el.scrollHeight - h0));
   };
 
   const characterSaved = async (c, isNew) => {
@@ -504,6 +561,7 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
 
   return (
     <div className={`page scene-page${theme.dark ? ' dark' : ''}${desktop ? ' desktop' : ''}`} style={themeStyle(scene.theme, scene.font, textSize)}>
+      {desktop && (<>
       <header className="scene-header">
         <div className="scene-header-row">
           <button className="icon-btn" onClick={() => go('/')} aria-label="Back to my scenes"><Icon name="back" /></button>
@@ -516,7 +574,7 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
           )}
           <button className="icon-btn" onClick={() => setSheet('menu')} aria-label="Scene menu"><Icon name="more" /></button>
         </div>
-        {!desktop && (<>
+        {!desktop && !keyboard && (<>
         <div className="roster-strip">
           <button className="roster-strip-inner" onClick={() => setSheet('roster')} aria-label="Who's in the scene">
             {roster.length === 0 && <span className="muted small">No characters yet</span>}
@@ -537,8 +595,9 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
         </div>}
         </>)}
       </header>
-
       {!online && <div className="offline-bar">You’re offline. New posts will appear when you reconnect.</div>}
+      </>)}
+
 
       {desktop ? (
         <div className={`desk-grid${reader ? ' reader' : ''}`}>
@@ -620,8 +679,43 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
           </aside>}
         </div>
       ) : (
-        <>
-      <main className={`scene-main ${view}`}>
+        <div className={`m-shell${keyboard ? ' typing' : ''}`} ref={shellRef}>
+      <header className="scene-header">
+          <div className="scene-header-row">
+            <button className="icon-btn" onClick={() => go('/')} aria-label="Back to my scenes"><Icon name="back" /></button>
+            <div className="scene-titles">
+              <h1>{scene.title}</h1>
+              {scene.universe && <span className="universe-label">{scene.universe}</span>}
+            </div>
+            {reader ? <span className="reader-pill">Reading</span> : (
+              <button className="icon-btn" onClick={() => setSheet('invite')} aria-label="Invite players"><Icon name="share" /></button>
+            )}
+            <button className="icon-btn" onClick={() => setSheet('menu')} aria-label="Scene menu"><Icon name="more" /></button>
+          </div>
+          {!desktop && !keyboard && (<>
+          <div className="roster-strip">
+            <button className="roster-strip-inner" onClick={() => setSheet('roster')} aria-label="Who's in the scene">
+              {roster.length === 0 && <span className="muted small">No characters yet</span>}
+              {roster.map((c) => (
+                <span key={c.id} className="roster-chip">
+                  <Avatar c={c} size={24} />
+                  <span style={{ color: colorFor(c.color) }}>{c.name}</span>
+                </span>
+              ))}
+            </button>
+            {joined && (
+              <button className="chip add-char" onClick={() => setSheet('addChar')}><Icon name="plus" size={14} /> Character</button>
+            )}
+          </div>
+          {!reader && <div className="view-toggle">
+            <Segmented value={view} onChange={setView} label="Story or out-of-character chat"
+              options={[{ value: 'story', label: 'Story', dot: unread.story }, { value: 'ooc', label: 'OOC chat', dot: unread.ooc }]} />
+          </div>}
+          </>)}
+        </header>
+  {!online && <div className="offline-bar">You’re offline. New posts will appear when you reconnect.</div>}
+          <div className="m-body">
+          <main className={`scene-main m-scroll ${view}`} ref={mobileScrollRef}>
         {view === 'story' && scene.description && (
           <section className={`desc-card${descOpen ? ' open' : ''}`}>
             <button className="desc-toggle" onClick={() => setDescOpen(!descOpen)} aria-expanded={descOpen}>
@@ -637,13 +731,13 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
           onChapterHere={joined ? (p) => { setChapterEdit(null); setChapterBefore(p); setSheet('chapter'); } : null}
           participantsByDevice={playersByDevice} rosterByDevice={rosterByDevice}
           emptyText={view === 'story' ? 'The stage is yours. Write the opening line, or post as Narrator to set the scene.' : 'Out-of-character chat lives here. Plans, questions, “brb”.'} />
-        <div className="feed-spacer" />
-      </main>
-
-      {newPill && (
-        <button className="new-pill" onClick={() => { scrollToBottom(true); setNewPill(false); }}>New posts ↓</button>
-      )}
-
+        <div className="m-spacer" />
+          </main>
+            {newPill && (
+              <button className="new-pill" onClick={() => { scrollToBottom(true); setNewPill(false); }}>New posts ↓</button>
+            )}
+          </div>
+          <div className="m-bar">
       {joined && view === 'ooc' && !playerName ? (
         <div className="join-bar">
           <form className="inline-form" onSubmit={(e) => { e.preventDefault(); const n = e.currentTarget.elements.pn.value.trim(); if (n) saveName(n); }}>
@@ -652,14 +746,14 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
           </form>
         </div>
       ) : joined ? (
-        <Composer slug={slug} channel={view} identity={identity} identityChar={identityChar} roster={roster} colorFor={colorFor}
+        <Composer docked slug={slug} channel={view} identity={identity} identityChar={identityChar} roster={roster} colorFor={colorFor}
           onPickIdentity={() => setSheet('identity')} onSend={(t) => send(t)}
           placeholder={`Chat as ${playerName || 'yourself'}…`} />
       ) : (
         JOIN_BAR
       )}
-
-        </>
+          </div>
+        </div>
       )}
 
       {/* ---- sheets ---- */}

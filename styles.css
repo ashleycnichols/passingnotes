@@ -582,3 +582,19 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); box-sh
 .stats-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .stats-note { margin-top: 8px; }
 .muted-link { color: var(--muted); font-size: 0.85rem; }
+
+/* ---- phone scene: a fixed frame above the keyboard, story scrolls inside ---- */
+html.shell-lock, html.shell-lock body { overflow: hidden; height: 100%; overscroll-behavior: none; }
+.m-shell { position: fixed; top: 0; left: 0; right: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg); will-change: transform; }
+.m-shell .scene-header { position: static; flex: none; }
+.m-shell .offline-bar { position: static; flex: none; }
+.m-body { position: relative; flex: 1; min-height: 0; }
+.m-scroll { position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; max-width: none; padding: 12px 12px 0; }
+.m-scroll > * { max-width: 736px; margin-left: auto; margin-right: auto; }
+.m-spacer { height: 16px; }
+.m-shell .new-pill { position: absolute; bottom: 12px; }
+.m-bar { flex: none; }
+.m-bar .composer.docked { position: static; transform: none !important; border: 0; border-top: 1px solid var(--border); border-radius: 0; box-shadow: none; padding: 8px 10px calc(8px + var(--safe-b)); background: var(--bg); }
+.m-shell.typing .m-bar .composer.docked { padding-bottom: 8px; }
+.m-bar .join-bar { position: static; }
+.m-shell .chapter-head { top: 0; }

@@ -125,7 +125,8 @@ export default function Composer({ slug, channel, identity, identityChar, onPick
     setBusy(true);
     try {
       await onSend(text);
-      setValue('');
+      // Only clear if nothing new was typed while the post was sending.
+      if ((taRef.current?.value || '').trim() === text) setValue('');
     } catch {
       // keep the text so nothing is lost
     } finally {
