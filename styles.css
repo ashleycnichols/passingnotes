@@ -597,4 +597,4 @@ html.shell-lock, html.shell-lock body { overflow: hidden; height: 100%; overscro
 .m-bar .composer.docked { position: static; transform: none !important; border: 0; border-top: 1px solid var(--border); border-radius: 0; box-shadow: none; padding: 8px 10px calc(8px + var(--safe-b)); background: var(--bg); }
 .m-shell.typing .m-bar .composer.docked { padding-bottom: 8px; }
 .m-bar .join-bar { position: static; }
-.m-shell .chapter-head { top: 0; }
+.m-shell .chapter-head { position: static; }
