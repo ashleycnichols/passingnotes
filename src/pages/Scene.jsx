@@ -657,10 +657,10 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
               <section className="desk-card">
                 <h3 className="desk-h">Chapters</h3>
                 {chapters.length > 0 ? (
-                  <ol className="desk-chapters">
+                  <ul className="desk-chapters">
                     {posts.story[0]?.kind !== 'chapter' && <li><button onClick={() => jumpTo(posts.story[0].id)}>Beginning</button></li>}
                     {chapters.map((c) => <li key={c.id}><button onClick={() => jumpTo(c.id)}>{c.body}</button></li>)}
-                  </ol>
+                  </ul>
                 ) : <p className="muted small">One long chapter so far.</p>}
                 {joined && <button className="btn small block" onClick={() => { setChapterEdit(null); setChapterBefore(null); setSheet('chapter'); }}><Icon name="plus" size={16} /> New chapter</button>}
               </section>
