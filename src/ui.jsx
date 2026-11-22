@@ -1,5 +1,5 @@
 // Shared building blocks: icons, sheets, avatars, toasts.
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { initials } from './util.js';
 import { textOn } from './look.js';
 import { getApi } from './api.js';
@@ -67,9 +67,42 @@ export function Sheet({ open, onClose, title, children, wide = false, footer }) 
       if (!document.querySelector('.sheet-backdrop + .sheet-backdrop')) document.body.classList.remove('sheet-open');
     };
   }, [open, onClose]);
+  const backRef = useRef(null);
+  // Phones: keep the sheet inside the visible area so the keyboard never covers it.
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const vv = window.visualViewport;
+    if (!vv) return undefined;
+    const touch = window.matchMedia('(pointer: coarse)').matches;
+    let tallest = window.innerHeight;
+    const fit = () => {
+      const el = backRef.current;
+      if (!el) return;
+      tallest = Math.max(tallest, vv.height, window.innerHeight);
+      const a = document.activeElement;
+      const typing = touch && !!a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT') && !!el.contains(a);
+      el.style.top = `${Math.round(vv.offsetTop)}px`;
+      el.style.height = `${Math.round(vv.height)}px`;
+      el.style.bottom = 'auto';
+      el.classList.toggle('kb', tallest - vv.height > 150 || typing);
+      if (typing && a.closest('.sheet')) a.scrollIntoView({ block: 'nearest' });
+    };
+    const soon = () => { fit(); setTimeout(fit, 300); };
+    fit();
+    vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    document.addEventListener('focusin', soon, true);
+    document.addEventListener('focusout', soon, true);
+    return () => {
+      vv.removeEventListener('resize', fit);
+      vv.removeEventListener('scroll', fit);
+      document.removeEventListener('focusin', soon, true);
+      document.removeEventListener('focusout', soon, true);
+    };
+  }, [open]);
   if (!open) return null;
   return (
-    <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
+    <div className="sheet-backdrop" ref={backRef} onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
       <div className={`sheet${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <div className="sheet-head">
           <h2>{title}</h2>
