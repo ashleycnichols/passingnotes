@@ -123,7 +123,7 @@ function useMobileShell(active, shellRef) {
   return keyboard;
 }
 
-export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
+export default function Scene({ slug: playerSlug, viewToken, jumpPost, openReclaim }) {
   // Readers arrive with a read-only link: they can read along but never join or post.
   const reader = !!viewToken;
   const slug = playerSlug || `r-${viewToken}`;
@@ -146,6 +146,13 @@ export default function Scene({ slug: playerSlug, viewToken, jumpPost }) {
   const [unread, setUnread] = useState({ story: false, ooc: false });
   const [newPill, setNewPill] = useState(false);
   const [sheet, setSheet] = useState(null); // 'invite' | 'join' | 'roster' | 'settings' | 'export' | 'identity' | 'menu' | 'name'
+  // Arrived from "Get your characters back": show the list with "This is mine".
+  const reclaimShown = useRef(false);
+  useEffect(() => {
+    if (!openReclaim || reclaimShown.current || !scene || viewToken) return;
+    reclaimShown.current = true;
+    setSheet('roster');
+  }, [openReclaim, scene, viewToken]);
   const [charForm, setCharForm] = useState(null); // { character? }
   const [sharing, setSharing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);

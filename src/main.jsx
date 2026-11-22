@@ -49,12 +49,14 @@ function App() {
   if (!isConfigured()) return <NotSetUp />;
   const [a, rawB, c] = parts;
   const [b, query = ''] = (rawB || '').split('?');
-  const jumpPost = new URLSearchParams(query).get('post');
+  const qs = new URLSearchParams(query);
+  const jumpPost = qs.get('post');
+  const openReclaim = qs.get('reclaim') === '1';
   let page;
   if (!a) page = <Home />;
   else if (a === 'new') page = <NewScene />;
   else if (a === 's' && b && c && c.startsWith('print')) page = <PrintView slug={b} withOoc={c.includes('ooc=1')} />;
-  else if (a === 's' && b) page = <Scene key={b} slug={b} jumpPost={jumpPost} />;
+  else if (a === 's' && b) page = <Scene key={b} slug={b} jumpPost={jumpPost} openReclaim={openReclaim} />;
   else if (a === 'r' && b) page = <Scene key={`r-${b}`} viewToken={b} jumpPost={jumpPost} />;
   else if (a === 'claim') page = <Claim token={b} />;
   else if (a === 'restore') page = <Restore data={b} />;

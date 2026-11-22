@@ -256,6 +256,17 @@ with sync_playwright() as pw:
     f.get_by_role('button', name='Open', exact=True).click()
     expect(f.get_by_text('Restored 1 character and 1 scene')).to_be_visible()
 
+    # ---- reclaim from the My characters tab with a scene link
+    gctx, g = phone(browser)
+    g.goto(BASE + '/')
+    g.get_by_role('tab', name='My characters').click()
+    expect(g.get_by_role('heading', name='Get your characters back')).to_be_visible()
+    shot(g, '16b-get-back')
+    g.get_by_label('Link to get characters back').fill(f'{BASE}/#/s/{slug}')
+    g.get_by_role('button', name='Reclaim', exact=True).click()
+    expect(g.locator('.char-row', has_text='Sterling Ashbourne').get_by_role('button', name='This is mine')).to_be_visible()
+    shot(g, '16c-reclaim-list')
+
     # ---- honour-system reclaim: Rowan's player on a fresh phone
     rctx, r = phone(browser)
     r.goto(f'{BASE}/#/s/{slug}')

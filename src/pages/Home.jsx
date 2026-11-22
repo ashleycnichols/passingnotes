@@ -401,6 +401,25 @@ function JoinSheet({ open, onClose }) {
   );
 }
 
+// Recover characters: paste a backup / character link, or a scene link to reclaim.
+function GetBack() {
+  const [v, setV] = useState('');
+  const route = routeFromInput(v);
+  const isScene = !!route && route.startsWith('/s/');
+  const open = () => { if (!route) return; setV(''); go(isScene ? `${route}?reclaim=1` : route); };
+  return (
+    <section className="get-back">
+      <h3>Get your characters back</h3>
+      <p className="muted small">Paste a backup link, a character link, or the invite link of a scene you play in. For a scene, tap “This is mine” next to your character.</p>
+      <form className="inline-form" onSubmit={(e) => { e.preventDefault(); open(); }}>
+        <input value={v} onChange={(e) => setV(e.target.value)} placeholder="Paste a link" inputMode="url" aria-label="Link to get characters back" />
+        <button className="btn" disabled={!route}>{isScene ? 'Reclaim' : 'Open'}</button>
+      </form>
+      {v && !route && <p className="muted small">That doesn’t look like a Passing Notes link.</p>}
+    </section>
+  );
+}
+
 function MyCharacters({ ids }) {
   const [chars, setChars] = useState(null);
   const [sceneMap, setSceneMap] = useState({});
@@ -438,11 +457,14 @@ function MyCharacters({ ids }) {
   if (chars === null) return <div className="char-grid">{[0, 1, 2].map((i) => <div key={i} className="char-card skeleton" />)}</div>;
   if (!chars.length) {
     return (
-      <div className="empty">
-        <Icon name="users" size={36} stroke={1.5} />
-        <h2>No characters on this device</h2>
-        <p className="muted">Characters you create in a scene are saved here so you can bring them to the next one. To move characters from another device, open a share or backup link here.</p>
-      </div>
+      <>
+        <div className="empty">
+          <Icon name="users" size={36} stroke={1.5} />
+          <h2>No characters on this device</h2>
+          <p className="muted">Characters you create in a scene are saved here so you can bring them to the next one.</p>
+        </div>
+        <GetBack />
+      </>
     );
   }
   const groups = new Map();
@@ -475,6 +497,7 @@ function MyCharacters({ ids }) {
           </ul>
         </section>
       ))}
+      <GetBack />
       <CharacterForm open={!!editing} character={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); setTick((t) => t + 1); }}
         onDeleted={() => { setEditing(null); setTick((t) => t + 1); }} />
       <ShareCharacterSheet character={sharing} onClose={() => setSharing(null)} />

@@ -139,7 +139,9 @@ textarea { resize: vertical; }
 input:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
 .form { display: block; }
 .inline-form { display: flex; gap: 8px; }
-.inline-form input { flex: 1; }
+.inline-form input { flex: 1; min-width: 0; }
+.get-back { margin: 24px 0 8px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); display: grid; gap: 10px; }
+.get-back h3 { font-size: 1rem; }
 .universe-input { display: grid; gap: 8px; }
 .chips.suggest .chip { min-height: 30px; font-size: 0.82rem; }
 
