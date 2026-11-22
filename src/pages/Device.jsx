@@ -80,7 +80,19 @@ export function Restore({ data }) {
     try {
       const d = decodeData(data || '');
       if (d.v !== 1) throw new Error('bad');
-      setRes(restoreFrom(d));
+      const r = restoreFrom(d);
+      setRes(r);
+      // Check what's still around, so an old backup doesn't claim success it can't deliver.
+      (async () => {
+        try {
+          const api = await getApi();
+          const ids = (d.c || []).map((c) => c.id).filter(Boolean);
+          const slugs = (d.s || []).map((x) => x.slug).filter(Boolean);
+          const [chars, scenes] = await Promise.all([api.getCharacters(ids), api.getScenesBySlugs(slugs)]);
+          const gone = ids.length - chars.filter((c) => !c.deleted_at).length;
+          setRes({ ...r, live: { chars: ids.length - gone, total: ids.length, scenes: scenes.length, sceneTotal: slugs.length } });
+        } catch { /* offline: keep the plain message */ }
+      })();
     } catch {
       setRes({ bad: true });
     }
@@ -93,6 +105,17 @@ export function Restore({ data }) {
           <Icon name="check" size={40} />
           <h2>Restored {res.chars} {res.chars === 1 ? 'character' : 'characters'} and {res.scenes} {res.scenes === 1 ? 'scene' : 'scenes'}</h2>
           <p className="muted">Anything already on this device was kept.</p>
+          {res.live && res.live.chars < res.live.total && (
+            <p className="warning">
+              {res.live.chars === 0
+                ? `This is an old backup: ${res.live.total === 1 ? 'its character has' : res.live.total === 2 ? 'both its characters have' : `all ${res.live.total} of its characters have`} since been deleted, so there’s nothing to bring back.`
+                : `${res.live.total - res.live.chars} of the characters in this backup have since been deleted.`}
+              {' '}To get a character back, open its scene and tap “This is mine” next to it.
+            </p>
+          )}
+          {res.live && res.live.sceneTotal > 0 && res.live.scenes < res.live.sceneTotal && (
+            <p className="muted small">{res.live.sceneTotal - res.live.scenes} of the scenes in this backup no longer exist.</p>
+          )}
           <button className="btn primary" onClick={() => go('/')}>Go to my scenes</button>
         </div>
       )}
