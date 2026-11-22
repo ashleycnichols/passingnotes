@@ -3,7 +3,7 @@ import { getApi } from '../api.js';
 import { useStore, update, setSceneHidden, getState, forgetMyCharacter, forgetRead } from '../store.js';
 import { go } from '../router.js';
 import { Avatar, Icon, Segmented, Sheet, toast, errMsg, useMedia } from '../ui.jsx';
-import { timeAgo, universeKey, sceneUrl, copyText, slugFromInput, isIOS, isStandalone, inAppBrowser } from '../util.js';
+import { timeAgo, universeKey, sceneUrl, copyText, routeFromInput, isIOS, isStandalone, inAppBrowser } from '../util.js';
 import { firstLine } from '../text.jsx';
 import { readableColor, chromeSurface, themeOf, themeStyle } from '../look.js';
 import { CharacterForm, ShareCharacterSheet } from '../components/Characters.jsx';
@@ -387,15 +387,16 @@ export default function Home() {
 
 function JoinSheet({ open, onClose }) {
   const [v, setV] = useState('');
-  const slug = slugFromInput(v);
+  const route = routeFromInput(v);
   return (
-    <Sheet open={open} onClose={onClose} title="Join with a link"
-      footer={<button className="btn primary" disabled={!slug} onClick={() => { onClose(); go(`/s/${slug}`); }}>Open scene</button>}>
+    <Sheet open={open} onClose={onClose} title="Open a link"
+      footer={<button className="btn primary" disabled={!route} onClick={() => { onClose(); setV(''); go(route); }}>Open</button>}>
       <label className="field">
-        <span>Paste the invite link</span>
+        <span>Paste an invite, character or backup link</span>
         <input value={v} onChange={(e) => setV(e.target.value)} placeholder="https://…#/s/…" autoFocus inputMode="url" />
       </label>
-      {v && !slug && <p className="muted small">That doesn’t look like a scene link.</p>}
+      {v && !route && <p className="muted small">That doesn’t look like a Passing Notes link.</p>}
+      <p className="muted small">On iPhone, tapping a link opens Safari, not the Home Screen app. Paste it here to use it in the app.</p>
     </Sheet>
   );
 }

@@ -243,6 +243,18 @@ with sync_playwright() as pw:
     dctx, d = phone(browser)
     d.goto(backup)
     expect(d.get_by_text('Restored 1 character and 1 scene')).to_be_visible()
+    # Pasting a backup link inside the app (as on an iPhone Home Screen app)
+    ectx, e2 = phone(browser)
+    e2.goto(BASE + '/#/settings')
+    e2.get_by_label('Backup link').fill(backup)
+    e2.get_by_role('button', name='Restore', exact=True).click()
+    expect(e2.get_by_text('Restored 1 character and 1 scene')).to_be_visible()
+    fctx, f = phone(browser)
+    f.goto(BASE + '/')
+    f.get_by_role('button', name='Join with a link').first.click()
+    f.get_by_label('Paste an invite, character or backup link').fill(backup)
+    f.get_by_role('button', name='Open', exact=True).click()
+    expect(f.get_by_text('Restored 1 character and 1 scene')).to_be_visible()
 
     # ---- honour-system reclaim: Rowan's player on a fresh phone
     rctx, r = phone(browser)

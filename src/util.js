@@ -72,6 +72,15 @@ export function slugFromInput(text) {
   return m ? m[1] : null;
 }
 
+// Any Passing Notes link (invite, reader, character, backup) -> its in-app route.
+export function routeFromInput(text) {
+  const t = (text || '').trim();
+  const m = t.match(/#\/(s|r|claim|restore)\/([A-Za-z0-9_.~%-]+)/);
+  if (m) return `/${m[1]}/${m[2]}`;
+  const slug = slugFromInput(t);
+  return slug ? `/s/${slug}` : null;
+}
+
 // base64url for JSON payloads in links
 export function encodeData(obj) {
   const bytes = new TextEncoder().encode(JSON.stringify(obj));

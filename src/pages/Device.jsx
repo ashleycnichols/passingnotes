@@ -4,7 +4,7 @@ import { getApi } from '../api.js';
 import { addMyCharacter, backupPayload, getState, rememberScene, restoreFrom, update, useStore, storageWorks } from '../store.js';
 import { go } from '../router.js';
 import { Avatar, Icon, Segmented, toast, errMsg } from '../ui.jsx';
-import { baseUrl, copyText, decodeData, encodeData, isIOS, isStandalone, isUuid, shareOrCopy, inAppBrowser, canPromptInstall, onInstallChange, promptInstall } from '../util.js';
+import { baseUrl, copyText, decodeData, encodeData, isIOS, isStandalone, isUuid, routeFromInput, shareOrCopy, inAppBrowser, canPromptInstall, onInstallChange, promptInstall } from '../util.js';
 import { TEXT_SIZES } from '../look.js';
 import { usePushStatus, enablePush, disablePush } from '../push.js';
 
@@ -100,6 +100,23 @@ export function Restore({ data }) {
   );
 }
 
+function RestoreBox() {
+  const [v, setV] = useState('');
+  const route = routeFromInput(v);
+  const ok = !!route && route.startsWith('/restore/');
+  return (
+    <section className="settings-block">
+      <h2>Restore from a backup link</h2>
+      <p>Paste a backup link to bring its characters and scenes onto this device. On iPhone, do this inside the Home Screen app: tapping the link would open Safari instead.</p>
+      <form className="inline-form" onSubmit={(e) => { e.preventDefault(); if (ok) { setV(''); go(route); } }}>
+        <input value={v} onChange={(e) => setV(e.target.value)} placeholder="https://…#/restore/…" inputMode="url" aria-label="Backup link" />
+        <button className="btn" disabled={!ok}>Restore</button>
+      </form>
+      {v && !ok && <p className="muted small">That isn’t a backup link. Backup links contain “#/restore/”.</p>}
+    </section>
+  );
+}
+
 export function Settings() {
   const playerName = useStore((s) => s.playerName);
   const textSize = useStore((s) => s.textSize);
@@ -144,9 +161,13 @@ export function Settings() {
         </div>
       </section>
 
+      <RestoreBox />
+
       <section className="settings-block">
         <h2>Keeping things saved</h2>
         <p>Your characters live in this browser, not in an account. Adding the app to your Home Screen and keeping a backup link are the two best ways to never lose them.</p>
+        <p className="warning">On iPhone, the Home Screen app and Safari keep separate copies. Removing the app from your Home Screen deletes its copy, so make a backup link first.</p>
+        <p>Lost a character anyway? Open the scene and tap “This is mine” next to it.</p>
       </section>
 
       <button className="link-btn center-block" onClick={() => go('/how')}>How it works</button>
