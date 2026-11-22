@@ -218,7 +218,7 @@ export default function Home() {
         <ul className="scene-grid">{[0, 1, 2].map((i) => <li key={i}><div className="scene-card skeleton" /></li>)}</ul>
       ) : visible.length === 0 && !showHidden && readScenes.length === 0 ? (
         <div className="empty welcome">
-          <img src="icons/icon-192.png" alt="" width="88" height="88" className="welcome-logo" />
+          <img src="icons/icon-192.png?v=2" alt="" width="88" height="88" className="welcome-logo" />
           <h2>Write a story together</h2>
           <p className="muted">Start a scene, send the link to your friends, and take turns writing as your characters. No sign-up.</p>
           <div className="home-actions center-actions">
@@ -329,7 +329,7 @@ export default function Home() {
     return (
       <div className="page home home-desktop">
         <aside className="home-side">
-          <div className="brand"><img className="brand-logo" src="icons/icon-192.png" alt="" width="34" height="34" /><span>{appName}</span></div>
+          <div className="brand"><img className="brand-logo" src="icons/icon-192.png?v=2" alt="" width="34" height="34" /><span>{appName}</span></div>
           <button className="btn primary block" onClick={() => go('/new')}><Icon name="plus" size={18} /> Start a scene</button>
           <button className="btn block" onClick={() => setJoinOpen(true)}><Icon name="link" size={18} /> Join with a link</button>
           <nav className="side-nav" aria-label="Home sections">
@@ -369,7 +369,7 @@ export default function Home() {
     <div className="page home">
       <header className="topbar">
         <div className="brand">
-          <img className="brand-logo" src="icons/icon-192.png" alt="" width="32" height="32" />
+          <img className="brand-logo" src="icons/icon-192.png?v=2" alt="" width="32" height="32" />
           <span>{appName}</span>
         </div>
         <button className="icon-btn" onClick={() => go('/settings')} aria-label="Settings"><Icon name="settings" /></button>

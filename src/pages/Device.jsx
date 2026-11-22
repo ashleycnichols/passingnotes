@@ -193,7 +193,7 @@ export function WelcomeIntro({ onDone }) {
     <div className="sheet-backdrop intro-backdrop">
       <div className="sheet intro" role="dialog" aria-modal="true" aria-label={`Welcome to ${appName}`}>
         <div className="intro-head">
-          <img src="icons/icon-192.png" alt="" width="64" height="64" />
+          <img src="icons/icon-192.png?v=2" alt="" width="64" height="64" />
           <h2>Welcome to {appName}</h2>
         </div>
         <ul className="intro-points">
@@ -220,7 +220,7 @@ export function HomeScreenSection() {
   return (
     <section className="settings-block" id="home-screen">
       <div className="hs-head">
-        <img src="icons/icon-192.png" alt="" width="56" height="56" className="hs-icon" />
+        <img src="icons/icon-192.png?v=2" alt="" width="56" height="56" className="hs-icon" />
         <div>
           <h2>Add to Home Screen</h2>
           <p className="muted small">Opens full screen like an app, and keeps your characters saved.</p>
