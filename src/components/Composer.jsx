@@ -95,6 +95,14 @@ export default function Composer({ slug, channel, identity, identityChar, onPick
   };
 
   useLayoutEffect(() => autoGrow(taRef.current, large ? 0.45 : 0.4), [value, large]);
+  // Re-fit when the keyboard opens or closes, so a long draft never slides under it.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const fit = () => autoGrow(taRef.current, large ? 0.45 : 0.4);
+    vv?.addEventListener('resize', fit);
+    window.addEventListener('resize', fit);
+    return () => { vv?.removeEventListener('resize', fit); window.removeEventListener('resize', fit); };
+  }, [large]);
 
   // Keep the composer above the on-screen keyboard and tell the page how tall we are.
   useEffect(() => {
