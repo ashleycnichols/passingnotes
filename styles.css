@@ -603,3 +603,6 @@ html.shell-lock, html.shell-lock body { overflow: hidden; height: 100%; overscro
 .m-shell.typing .m-bar .composer.docked { padding-bottom: 8px; }
 .m-bar .join-bar { position: static; }
 .m-shell .chapter-head { position: static; }
+
+/* ---- update ready ---- */
+.update-bar { position: fixed; z-index: 150; left: 50%; transform: translateX(-50%); top: calc(10px + var(--safe-t)); width: max-content; max-width: calc(100% - 24px); display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 999px; background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 0.9rem; }

@@ -4,6 +4,7 @@ import { useRoute } from './router.js';
 import { isConfigured, getApi } from './api.js';
 import { Toasts } from './ui.jsx';
 import { registerServiceWorker, syncPush } from './push.js';
+import { startUpdateChecks, usePendingUpdate, applyUpdate } from './update.js';
 import { getState, subscribeStore, useStore, update } from './store.js';
 import Home from './pages/Home.jsx';
 import NewScene from './pages/NewScene.jsx';
@@ -46,6 +47,7 @@ function NotSetUp() {
 function App() {
   const { parts } = useRoute();
   const seenIntro = useStore((s) => s.seenIntro);
+  const pendingUpdate = usePendingUpdate();
   if (!isConfigured()) return <NotSetUp />;
   const [a, rawB, c] = parts;
   const [b, query = ''] = (rawB || '').split('?');
@@ -71,11 +73,18 @@ function App() {
         <WelcomeIntro onDone={() => update((s) => (s.seenIntro = true))} />
       )}
       <Toasts />
+      {pendingUpdate && (
+        <div className="update-bar" role="status">
+          <span>A new version of Passing Notes is ready.</span>
+          <button className="btn small primary" onClick={() => applyUpdate()}>Update</button>
+        </div>
+      )}
     </Boundary>
   );
 }
 
 registerServiceWorker();
+startUpdateChecks();
 
 // Once a day, note that this device opened the app (random device ID and date only).
 (() => {

@@ -6,6 +6,7 @@ import { go } from '../router.js';
 import { Avatar, Icon, Segmented, toast, errMsg } from '../ui.jsx';
 import { baseUrl, copyText, decodeData, encodeData, isIOS, isStandalone, isUuid, routeFromInput, shareOrCopy, inAppBrowser, canPromptInstall, onInstallChange, promptInstall } from '../util.js';
 import { TEXT_SIZES } from '../look.js';
+import { APP_VERSION } from '../update.js';
 import { usePushStatus, enablePush, disablePush } from '../push.js';
 
 function Shell({ title, children, back = '/' }) {
@@ -195,6 +196,7 @@ export function Settings() {
 
       <button className="link-btn center-block" onClick={() => go('/how')}>How it works</button>
       <button className="link-btn center-block muted-link" onClick={() => go('/stats')}>Usage stats (owner)</button>
+      <p className="muted small center">Version {APP_VERSION}</p>
     </Shell>
   );
 }

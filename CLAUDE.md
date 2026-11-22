@@ -4,7 +4,7 @@ Collaborative written role play. Mobile-first, no logins, trust-based, link-only
 
 ## Stack
 - Static site on GitHub Pages. `index.html` + `styles.css` + `config.js` + built `app.js`.
-- React 19 + JSX in `src/`, bundled by esbuild (`npm run build`). Commit `app.js` after every src change and bump `?v=` in index.html.
+- React 19 + JSX in `src/`, bundled by esbuild (`npm run build`). Bump `?v=` in index.html first, then build: the build writes `version.json` from that number, and installed copies (iPhone Home Screen apps) reload themselves when it's newer (`src/update.js`). Commit `app.js` and `version.json`.
 - Supabase: Postgres + Realtime + Storage (bucket `character-photos`). Schema in `supabase/migrations/`. Keep migrations idempotent.
 - Supabase JS loads from jsDelivr at runtime (`@supabase/supabase-js@2`).
 
